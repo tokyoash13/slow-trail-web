@@ -64,7 +64,12 @@
   #vcap b { display: block; font-size: 26px; letter-spacing: .14em; } #vcap span { font-size: 12px; opacity: .85; }
   #root.vista #vcap { display: block; } #root.vista .hud, #root.vista .btn { display: none; }
   #root.vista::before, #root.vista::after { content: ''; position: absolute; left: 0; right: 0; height: 8%; background: #120c10; z-index: 3; pointer-events: none; }
-  #root.vista::before { top: 0; } #root.vista::after { bottom: 0; }
+  #root.vista::before { top: 0; } #root.vista::after { bottom: 0; } #root.vista::before, #root.vista::after { transition: height .7s; } #root.vista.free::before, #root.vista.free::after { height: 0; }
+  #prompt { left: 50%; bottom: 23%; transform: translateX(-50%); display: none; align-items: center; gap: 12px; padding: 7px 9px 7px 18px; background: rgba(34,24,32,.84); border: 1.5px solid rgba(255,255,255,.45); border-radius: 26px; pointer-events: auto; z-index: 2; white-space: nowrap; }
+  #prompt.show { display: flex; } #prompt b { font-size: 14px; letter-spacing: .06em; } #prompt i { font-style: normal; font-size: 11px; opacity: .75; }
+  #promptBtn, #sceneExit { padding: 9px 16px; font-size: 14px; font-weight: bold; color: #2a1a20; background: #f0b050; border: 1.5px solid #fff; border-radius: 20px; cursor: pointer; }
+  #sceneExit { display: none; position: absolute; right: 18px; bottom: 10%; z-index: 4; } #root.vista #sceneExit { display: block; }
+  #vcap b, #vcap { transition: all .6s; } #root.vista.free #vcap { bottom: 3%; } #root.vista.free #vcap b { font-size: 15px; display: inline; margin-right: 10px; } #root.vista.free #sceneExit { bottom: 4%; }
   #steerHint { left: 16px; bottom: 26px; width: 38%; max-width: 330px; text-align: center; font-size: 12px; letter-spacing: .08em; padding: 16px 0; border: 1.5px dashed rgba(255,255,255,.4); border-radius: 22px; background: rgba(34,24,32,.2); transition: opacity .4s; }
   #root.pad #steerHint, #root.steering #steerHint { opacity: 0; }
   #stick { position: absolute; width: 150px; height: 64px; margin: -32px 0 0 -75px; border-radius: 32px; border: 2px solid rgba(255,255,255,.5); background: rgba(34,24,32,.28); display: none; pointer-events: none; z-index: 2; }
@@ -122,7 +127,7 @@
 <canvas id="mini" class="hud" width="264" height="264"></canvas>
 <div id="compass" class="hud"><span id="heading">N</span><br><span id="arrow"><svg viewBox="-20 -20 40 40" width="40" height="40"><path d="M0,-18 L13,0 L5.5,0 L5.5,16 L-5.5,16 L-5.5,0 L-13,0 Z" fill="#2fd6ff" stroke="#1c1420" stroke-width="2.6" stroke-linejoin="round"/></svg></span><br><span id="target"></span></div>
 <div id="speed" class="hud"><b id="kmh">0</b> km/h<br><span id="gear">4H · D</span></div>
-<div id="padhint" class="hud">RT gas · LT brake · sticks steer / look · X winch · LB low range · RB horn · Y view · D-pad up map · Back camp · Start menu</div>
+<div id="padhint" class="hud">RT gas · LT brake · sticks steer / look · X winch · LB low range · RB horn · Y view · D-pad up map, down look around · Back camp · Start menu</div>
 <div id="toast" class="hud"></div>
 
 <div id="steerHint" class="hud">◀&nbsp; slide anywhere here to steer &nbsp;▶</div>
@@ -157,7 +162,9 @@
   <div id="mHelp">Slide on the left to steer, pedals on the right · or controller: RT gas, LT brake, sticks steer / look, X winch, LB low gear · <span id="padstat">press any controller button to connect</span></div>
 </div>
 <div id="bigmap"><div id="mapHint">Tap a place to get directions there</div><button class="mb" id="mapClose">✕ Close map</button><canvas id="mapc" width="640" height="640"></canvas><div id="maplist"></div></div>
-<div id="vcap"><b id="vcapName"></b><span id="vcapSub">tap or press gas to drive on</span></div>
+<div id="vcap"><b id="vcapName"></b><span id="vcapSub">drag to look around</span></div>
+<button class="mb" id="sceneExit">Drive on ▶</button>
+<div id="prompt" class="hud"><b id="promptName"></b><button class="mb" id="promptBtn"></button><i id="promptKey"></i></div>
 <div id="fade"><span id="fadeMsg"></span></div>
 </div>
 
@@ -227,6 +234,10 @@ rockMat.onBeforeCompile = sh => { sh.uniforms.uDet = { value: detailTex };
   sh.fragmentShader = 'uniform sampler2D uDet; varying vec3 vWp;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n' +
     ' float rk = texture2D(uDet, vWp.xz * .11 + vWp.y * .07).g * texture2D(uDet, vec2(vWp.x + vWp.z, vWp.y) * .23).g / .62;' +
     ' float strata = .5 + .5 * sin(vWp.y * 2.1 + sin(vWp.x * .19 + vWp.z * .23) * 1.6); diffuseColor.rgb *= rk * (.86 + .2 * strata);'); };
+vcMat.onBeforeCompile = sh => { sh.uniforms.uDet = { value: detailTex };
+  sh.vertexShader = 'varying vec3 vWp;\n' + sh.vertexShader.replace('#include <begin_vertex>', WORLD_POS);
+  sh.fragmentShader = 'uniform sampler2D uDet; varying vec3 vWp;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n' +
+    ' float gr = texture2D(uDet, vWp.xz * .83 + vWp.y * .61).g / .79; diffuseColor.rgb *= .7 + .3 * gr;'); };
 function weld(g) { const p = g.attributes.position, n = g.attributes.normal, map = new Map(), key = i => Math.round(p.getX(i) * 200) + ',' + Math.round(p.getY(i) * 200) + ',' + Math.round(p.getZ(i) * 200);
   for (let i = 0; i < p.count; i++) { const k = key(i), a = map.get(k) || [0, 0, 0]; a[0] += n.getX(i); a[1] += n.getY(i); a[2] += n.getZ(i); map.set(k, a); }
   for (let i = 0; i < p.count; i++) { const a = map.get(key(i)), l = Math.hypot(a[0], a[1], a[2]) || 1; n.setXYZ(i, lerp(n.getX(i), a[0] / l, .78), lerp(n.getY(i), a[1] / l, .78), lerp(n.getZ(i), a[2] / l, .78)); } return g; }
@@ -242,7 +253,8 @@ treeMat.onBeforeCompile = sh => { sh.uniforms.uTime = timeU; sh.uniforms.uLeaf =
     .replace('#include <begin_vertex>', '#include <begin_vertex>\n vec3 ip = instanceMatrix[3].xyz; float sw = sin(uTime * 1.2 + ip.x * .31 + ip.z * .27 + position.y * .4) * aMask;' +
       ' transformed.x += sw * .03 * position.y; transformed.z += sw * .02 * position.y; vLp = position + ip * .37; vMk = aMask;');      // leaves stir in the wind
   sh.fragmentShader = 'uniform sampler2D uLeaf; varying vec3 vLp; varying float vMk;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n' +
-    ' float lf = texture2D(uLeaf, vLp.xz * .55 + vLp.y * .43).r; diffuseColor.rgb *= mix(1.0, .7 + .6 * lf, vMk);'); };
+    ' float lf = texture2D(uLeaf, vLp.xz * .55 + vLp.y * .43).r, lf2 = texture2D(uLeaf, vLp.xz * 2.3 + vLp.y * 1.9).r, bk = texture2D(uLeaf, vec2((vLp.x + vLp.z) * 2.6, vLp.y * .22)).r;' +
+    ' diffuseColor.rgb *= mix(.7 + .6 * bk, (.7 + .6 * lf) * (.8 + .4 * lf2), vMk);'); };
 
 /* ---------- terrain data ---------- */
 const N = 220, CS = 5, HALF = N * CS / 2, NV = N + 1;
@@ -294,7 +306,7 @@ const camps = [];
 const RD = new Float32Array(NV * NV), roadSet = new Uint8Array(NV * NV), roads = [], trailPaths = [], sights = [];
 // the cave (built further down): caveIn = how far a point is inside the cutting (0..1), caveMask = under the roof
 let cave = null; const caveIn = new Float32Array(NV * NV), caveMask = new Uint8Array(NV * NV);
-const caveNear = (x, z, r) => { if (!cave || x < cave.bb[0] - r || x > cave.bb[1] + r || z < cave.bb[2] - r || z > cave.bb[3] + r) return false; const q = cave.near(x, z); return q.d < 22 + Math.min(r, 12) * .5 || q.dc < 40; };
+const caveNear = (x, z, r) => { if (!cave || x < cave.bb[0] - r || x > cave.bb[1] + r || z < cave.bb[2] - r || z > cave.bb[3] + r) return false; const q = cave.near(x, z); return q.d < 28 + Math.min(r, 12) * .5 || q.dc < 58; };
 const forestAt = (x, z) => vnoise(x / 70 + 40, z / 70 + 40);
 const vIdx = (x, z) => clamp(Math.round((z + HALF) / CS), 2, N - 2) * NV + clamp(Math.round((x + HALF) / CS), 2, N - 2);
 const vX = v => -HALF + (v % NV) * CS, vZ = v => -HALF + ((v / NV) | 0) * CS;
@@ -372,14 +384,14 @@ function pathFrom(r, goal) { const p = []; for (let v = goal; v >= 0; v = r.prev
   let best = null, bs = -1e9;
   for (let az = -480; az <= 480; az += 10) for (let ax = -480; ax <= 480; ax += 10) { const h0 = heightAt(ax, az); if (h0 < 1.5 || h0 > 4.5 || slopeAt(ax, az, 6) > .22) continue;
     for (let d = 0; d < 24; d++) { const a = d * .2618, sx = Math.sin(a), cz = Math.cos(a);
-      for (const L of [150, 180, 210, 240]) { const bx = ax + sx * L, bz = az + cz * L; if (Math.abs(bx) > 500 || Math.abs(bz) > 500) continue;
+      for (const L of [180, 210, 240, 270, 300]) { const bx = ax + sx * L, bz = az + cz * L; if (Math.abs(bx) > 500 || Math.abs(bz) > 500) continue;
         const h1 = heightAt(bx, bz); if (h1 < 1.5 || h1 > 4.5 || slopeAt(bx, bz, 6) > .22) continue;
         let mn = 1e9, mx = 0, wet = false;
-        for (let s = 5; s < L && !wet; s += 5) { const f = s / L; for (const o of [0, 11, -11]) { const h = heightAt(ax + sx * s + cz * o, az + cz * s - sx * o); if (h < .3) wet = true; if (f > .17 && f < .83) { if (h < mn) mn = h; if (h > mx) mx = h; } } }
+        for (let s = 5; s < L && !wet; s += 5) { const f = s / L; for (const o of [0, 16, -16]) { const h = heightAt(ax + sx * s + cz * o, az + cz * s - sx * o); if (h < .3) wet = true; if (f > .17 && f < .83) { if (h < mn) mn = h; if (h > mx) mx = h; } } }
         if (wet || mn < 8.5 || mx > 62) continue;
-        const mxm = ax + sx * L / 2, mzm = az + cz * L / 2; let ring = 1e9; for (let k = 0; k < 10; k++) ring = Math.min(ring, heightAt(mxm + Math.cos(k * .628) * 31, mzm + Math.sin(k * .628) * 31)); if (ring < 9) continue;
-        let pd = 1e9; for (const p of pois) for (const f of [0, .25, .5, .75, 1]) pd = Math.min(pd, Math.hypot(p.x - (ax + sx * L * f), p.z - (az + cz * L * f))); if (pd < 62) continue;
-        const sc = Math.min(mn, ring) + L * .012; if (sc > bs) { bs = sc; best = { ax, az, bx, bz, L }; } } } }
+        const mxm = ax + sx * L / 2, mzm = az + cz * L / 2; let ring = 1e9; for (let k = 0; k < 10; k++) ring = Math.min(ring, heightAt(mxm + Math.cos(k * .628) * 44, mzm + Math.sin(k * .628) * 44)); if (ring < 9) continue;
+        let pd = 1e9; for (const p of pois) for (const f of [0, .25, .5, .75, 1]) pd = Math.min(pd, Math.hypot(p.x - (ax + sx * L * f), p.z - (az + cz * L * f))); if (pd < 75) continue;
+        const sc = Math.min(mn, ring) + L * .03; if (sc > bs) { bs = sc; best = { ax, az, bx, bz, L }; } } } }
   if (!best) return;
   const { ax, az, bx, bz, L } = best, ux = (bx - ax) / L, uz = (bz - az) / L, px = uz, pz = -ux, pts = [];
   for (let s = 0; s <= L + .01; s += 2.5) { const f = s / L, off = Math.sin(f * 6.283) * 9 * sstep(0, .22, f) * sstep(1, .78, f); pts.push({ x: ax + ux * s + px * off, z: az + uz * s + pz * off, f }); }
@@ -390,36 +402,37 @@ function pathFrom(r, goal) { const p = []; for (let v = goal; v >= 0; v = r.prev
     const a = pts[Math.max(0, bi - 1)], b = pts[Math.min(nP - 1, bi + 1)]; q.d = Math.sqrt(bd); q.i = bi; q.dc = Math.hypot(x - C.x, z - C.z); q.side = (b.x - a.x) * (z - a.z) - (b.z - a.z) * (x - a.x) > 0 ? 1 : -1; return q; };
   let iA = -1, iB = -1; pts.forEach((p, i) => { if (gridAt(H0, p.x, p.z) - floorF(p.f) >= 6.5) { if (iA < 0) iA = i; iB = i; } });
   if (iA < 0 || iB - iA < 30) return;
-  const bb = [1e9, -1e9, 1e9, -1e9]; for (const p of pts) { bb[0] = Math.min(bb[0], p.x - 45); bb[1] = Math.max(bb[1], p.x + 45); bb[2] = Math.min(bb[2], p.z - 45); bb[3] = Math.max(bb[3], p.z + 45); }
+  const bb = [1e9, -1e9, 1e9, -1e9]; for (const p of pts) { bb[0] = Math.min(bb[0], p.x - 62); bb[1] = Math.max(bb[1], p.x + 62); bb[2] = Math.min(bb[2], p.z - 62); bb[3] = Math.max(bb[3], p.z + 62); }
   const i0 = Math.max(1, Math.floor((bb[0] + HALF) / CS)), i1 = Math.min(N - 1, Math.ceil((bb[1] + HALF) / CS)), j0 = Math.max(1, Math.floor((bb[2] + HALF) / CS)), j1 = Math.min(N - 1, Math.ceil((bb[3] + HALF) / CS));
   const ceil = new Float32Array(NV * NV).fill(1e4), info = new Float32Array(NV * NV * 3);
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * NV + i, x = -HALF + i * CS, z = -HALF + j * CS, n = near(x, z), d = n.d, dc = n.dc, f = pts[n.i].f;
     info[k * 3] = d; info[k * 3 + 1] = dc; info[k * 3 + 2] = f;
     if ((n.i === 0 && (x - ax) * ux + (z - az) * uz < 0) || (n.i === nP - 1 && (x - bx) * ux + (z - bz) * uz > 0)) continue;          // nothing beyond the two ends
-    const wob = vnoise(x / 9 + 3, z / 9 + 7) * 2.4, t = Math.max(1 - sstep(6.5, 11.5, d + wob), 1 - sstep(23, 29.5, dc + wob));       // ragged walls
-    let F = floorF(f); if (n.side > 0 && d > 2 && d < 7.5 && f > .27 && f < .73) F = Math.min(F, -.42);                            // the stream
-    if (dc < 31) F = Math.min(F, lerp(-.76, .55, sstep(8, 20, dc)));                                                               // the lake
+    const wob = vnoise(x / 9 + 3, z / 9 + 7) * 2.4, t = Math.max(1 - sstep(10, 15.5, d + wob), 1 - sstep(35, 42.5, dc + wob));       // ragged walls
+    let F = floorF(f); if (n.side > 0 && d > 4 && d < 10.5 && f > .25 && f < .75) F = Math.min(F, -.42);                            // the stream
+    if (dc < 44) F = Math.min(F, lerp(-.76, .55, sstep(12, 30, dc)));                                                               // the lake
     if (t > 0) { const nh = lerp(H0[k], F, t); if (H0[k] - nh > .3) { H[k] = nh; caveIn[k] = t; } }
-    if (n.i >= iA && n.i <= iB && (d < 19.5 || dc < 37.5)) caveMask[k] = 1; }
+    if (n.i >= iA && n.i <= iB && (d < 23.5 || dc < 50.5)) caveMask[k] = 1; }
   // roof underside: pinched to the hillside around the edge, a rough vault inside, a dome over the lake
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * NV + i; if (!caveMask[k]) continue;
     let edge = false; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) if (!caveMask[k + a * NV + b]) edge = true;
     const x = -HALF + i * CS, z = -HALF + j * CS, d = info[k * 3], dc = info[k * 3 + 1], Fc = Math.max(.55, floorF(info[k * 3 + 2]));
-    ceil[k] = edge ? H0[k] : Math.min(H0[k] - 1, Fc + 8.4 - 3.2 * sstep(4, 12, d) + (dc < 34 ? 6.5 * (1 - sstep(0, 30, dc)) : 0) + (vnoise(x / 7 + 1, z / 7 + 5) - .5) * 1.8); }
+    ceil[k] = edge ? H0[k] : Math.min(H0[k] - 1, Fc + 11 - 4 * sstep(6, 16, d) + (dc < 46 ? 11 * (1 - sstep(0, 42, dc)) : 0) + (vnoise(x / 7 + 1, z / 7 + 5) - .5) * 1.8); }
   cave = { pts, C, iA, iB, bb, near, ceil, H0, ux, uz, px, pz, swapped: false, floorF,
     swap() { for (let k = 0; k < NV * NV; k++) if (caveMask[k]) { const t = H[k]; H[k] = H0[k]; H0[k] = t; } this.swapped = !this.swapped; } };
   sights.push({ x: ax, z: az, kind: 'cave', name: 'Echo Cave', found: false, ry: Math.atan2(ux, uz) });
-  sights.push({ x: C.x + px * 8, z: C.z + pz * 8, kind: 'lake', name: 'Mirror Lake', found: false, ry: 0, noTrail: true });          // an islet just off the line through the chamber
+  sights.push({ x: C.x + px * 11, z: C.z + pz * 11, kind: 'lake', name: 'Mirror Lake', found: false, ry: 0, noTrail: true });          // an islet just off the line through the chamber
 })();
 const ceilAt = (x, z) => cave ? gridAt(cave.ceil, x, z) : 1e4;
 
+const placeR = p => p.kind === undefined ? 14 : p.kind === 'lake' ? 11 : p.kind === 'view' ? 13 : 15;
 (function buildRoads() {
   camps.forEach(c => { c.kind = 'camp'; c.gx = c.x - 12; c.gz = c.z + 8; });
   const blocked = new Uint8Array(NV * NV);            // keep roads and trails from cutting through a camp or a sight
   const block = (p, r) => { const ci = Math.round((p.x + HALF) / CS), cj = Math.round((p.z + HALF) / CS), n = Math.ceil(r / CS);
     for (let j = cj - n; j <= cj + n; j++) for (let i = ci - n; i <= ci + n; i++) if (i >= 0 && j >= 0 && i <= N && j <= N && Math.hypot(-HALF + i * CS - p.x, -HALF + j * CS - p.z) < r) blocked[j * NV + i] = 1; };
   camps.forEach(c => block(c, 9)); sights.forEach(s => { block(s, 9); if (s.kind === 'falls') { block(s.cliff, 24); block(s.mid, 16); block(s.mtn, 74); } });
-  if (cave) { for (const p of cave.pts) block(p, 34); block(cave.C, 54); }
+  if (cave) { for (const p of cave.pts) block(p, 40); block(cave.C, 70); }
   const noGo = v => caveIn[v] > 0 || caveMask[v] ? 1e7 : 0;
   const wet = v => H[v] < 1.3 ? (H[v] < -1.3 ? 4000 : 300) : 0;
   const roadCost = reuse => (u, v, st) => { const s = (H[v] - H[u]) / st; return st * (1 + 70 * s * s) * (roadSet[v] ? reuse : 1) + wet(v) + (blocked[v] ? 3000 : 0) + noGo(v); };
@@ -618,8 +631,11 @@ const waterMat = new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: tru
     const px = jr() * 256, py = jr() * 256, ang = jr() * 6.28, l = 2 + jr() * 5; x2.beginPath(); x2.moveTo(px, py); x2.lineTo(px + Math.cos(ang) * l, py + Math.sin(ang) * l); x2.stroke(); }
   for (let i = 0; i < 700; i++) { x2.fillStyle = 'rgba(170,160,150,' + (.15 + jr() * .3) + ')'; x2.fillRect(jr() * 256, jr() * 256, 1 + jr() * 2, 1 + jr() * 2); }
   const tex = detailTex; groundMat = new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 0, map: tex, bumpMap: tex, bumpScale: .34 });
-  groundMat.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>',
-    ' float g1 = texture2D(map, vUv).g, g2 = texture2D(map, vUv * .137 + .31).g, g3 = texture2D(map, vUv * .029 + .7).g; diffuseColor.rgb *= (g1 / .79) * (.62 + .48 * g2) * (.74 + .33 * g3);'); };
+  groundMat.onBeforeCompile = sh => { sh.vertexShader = 'varying float vHt; varying float vSl;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vHt = position.y; vSl = normal.y;');
+    sh.fragmentShader = 'varying float vHt; varying float vSl;\n' + sh.fragmentShader.replace('#include <map_fragment>',
+    ' float g1 = texture2D(map, vUv).g, g2 = texture2D(map, vUv * .137 + .31).g, g3 = texture2D(map, vUv * .029 + .7).g; diffuseColor.rgb *= (g1 / .79) * (.62 + .48 * g2) * (.74 + .33 * g3);' +
+    ' float rockK = 1.0 - smoothstep(.6, .86, vSl); float st = .5 + .5 * sin(vHt * 2.3 + g2 * 5.0 + g3 * 3.0); float g4 = texture2D(map, vUv * 3.3 + .17).g / .79;' +
+    ' diffuseColor.rgb *= mix(.78 + .22 * g4, (.78 + .36 * st) * (.86 + .14 * g4), rockK);'); };
   const ground = new THREE.Mesh(g, groundMat);
   ground.receiveShadow = true; scene.add(ground);
   paintTerrain = () => { paint(); g.attributes.color.needsUpdate = true; };
@@ -694,7 +710,7 @@ let paintRoads = null;
 /* ---------- rocks, trees, plants ---------- */
 const chunks = [];
 const tinted = [];
-function scatter(geo, items, mat, cast, tag) {
+function scatter(geo, items, mat, cast, tag, far) {
   if (!items.length) return;
   const SEC = 6, size = 2 * HALF / SEC, buckets = {};
   for (const it of items) { const k = clamp(Math.floor((it.x + HALF) / size), 0, SEC - 1) + SEC * clamp(Math.floor((it.z + HALF) / size), 0, SEC - 1); (buckets[k] || (buckets[k] = [])).push(it); }
@@ -704,7 +720,7 @@ function scatter(geo, items, mat, cast, tag) {
     const m = new THREE.InstancedMesh(g, mat, list.length);
     list.forEach((it, i) => { e.set(it.rx || 0, it.ry || 0, it.rz || 0); q.setFromEuler(e); v.set(it.x, it.y, it.z); sc.set(it.s, it.s * (it.sy || 1), it.s);
       mm.compose(v, q, sc); m.setMatrixAt(i, mm); c.setHex(it.tint === undefined ? 0xffffff : it.tint); m.setColorAt(i, c); });
-    if (tag) tinted.push({ m, list, tag }); m.castShadow = !!cast; scene.add(m); chunks.push({ m, x: g.boundingSphere.center.x, z: g.boundingSphere.center.z, r: g.boundingSphere.radius }); }
+    if (tag) tinted.push({ m, list, tag }); m.castShadow = !!cast; scene.add(m); chunks.push({ m, x: g.boundingSphere.center.x, z: g.boundingSphere.center.z, r: g.boundingSphere.radius, far }); }
 }
 // things you can bump into and hook the winch onto
 const solids = [], solidGrid = new Map(), TG = 20;
@@ -808,7 +824,7 @@ sights.forEach(s => {
 });
 
 /* ---------- cave: rim guards, stalactites, crystals, glow-worms, light ---------- */
-let caveK = 0; const caveGlow = [], caveLight = new THREE.PointLight(0x86ecff, 0, 70, 1.4); scene.add(caveLight);
+let caveK = 0; const caveGlow = [], caveLight = new THREE.PointLight(0x86ecff, 0, 90, 1.3); scene.add(caveLight);
 const shaftMat = new THREE.MeshBasicMaterial({ color: 0xcfe8ff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false });
 const crystalMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: .93 });
 if (cave) (function () {
@@ -817,16 +833,16 @@ if (cave) (function () {
   // invisible guards along the rim keep you off the roof, which is only a picture of the hillside
   const guard = (x, z) => addSolid({ x, z, h: 0, r: 3.4, top: 0, ghost: true });
   for (let i = iA - 4; i <= iB + 4; i += 2) { if (i < 1 || i >= nP - 1) continue; const p = pts[i], n = nrm(i);
-    for (const sd of [1, -1]) { const x = p.x + n[0] * sd * 15.6, z = p.z + n[1] * sd * 15.6; if (Math.hypot(x - C.x, z - C.z) > 34) guard(x, z); } }
-  for (let k = 0; k < 38; k++) { const a = k / 38 * 6.283, x = C.x + Math.cos(a) * 33.8, z = C.z + Math.sin(a) * 33.8; if (cave.near(x, z).d > 14.5) guard(x, z); }
+    for (const sd of [1, -1]) { const x = p.x + n[0] * sd * 19.8, z = p.z + n[1] * sd * 19.8; if (Math.hypot(x - C.x, z - C.z) > 47) guard(x, z); } }
+  for (let k = 0; k < 54; k++) { const a = k / 54 * 6.283, x = C.x + Math.cos(a) * 46.8, z = C.z + Math.sin(a) * 46.8; if (cave.near(x, z).d > 18.6) guard(x, z); }
   // a random spot under the roof: along the tunnel, or anywhere in the lake chamber
-  const spot = wall => { if (cr() < .42) { const a = cr() * 6.283, r = wall ? 19.5 + cr() * 3.5 : Math.sqrt(cr()) * 25; return { x: C.x + Math.cos(a) * r, z: C.z + Math.sin(a) * r }; }
-    const i = iA + 3 + (cr() * (iB - iA - 6) | 0), n = nrm(i), o = wall ? (cr() < .5 ? 1 : -1) * (5.6 + cr() * 1.6) : (cr() * 2 - 1) * 8.5; return { x: pts[i].x + n[0] * o, z: pts[i].z + n[1] * o }; };
+  const spot = wall => { if (cr() < .42) { const a = cr() * 6.283, r = wall ? 30 + cr() * 5 : Math.sqrt(cr()) * 37; return { x: C.x + Math.cos(a) * r, z: C.z + Math.sin(a) * r }; }
+    const i = iA + 3 + (cr() * (iB - iA - 6) | 0), n = nrm(i), o = wall ? (cr() < .5 ? 1 : -1) * (8.6 + cr() * 2) : (cr() * 2 - 1) * 12.5; return { x: pts[i].x + n[0] * o, z: pts[i].z + n[1] * o }; };
   const ROCK = [0x5c5250, 0x4e4644, 0x6a5e5a, 0x56504e];
-  for (let n = 0; n < 190; n++) { const p = spot(false), cy = ceilAt(p.x, p.z), fl = Math.max(heightAt(p.x, p.z), 0); if (cy > 500 || cy - fl < 6.3) continue;      // stalactites
+  for (let n = 0; n < 340; n++) { const p = spot(false), cy = ceilAt(p.x, p.z), fl = Math.max(heightAt(p.x, p.z), 0); if (cy > 500 || cy - fl < 6.3) continue;      // stalactites
     const l = Math.min(.7 + cr() * cr() * 3.4, cy - fl - 4.9), r = .16 + l * .11;
     rock.push(bake(new THREE.ConeGeometry(r, l, 5), ROCK[n & 3], M(p.x, cy - l / 2 + .25, p.z, Math.PI, cr() * 6, 0), { jit: .1, shade: [1.05, .8] })); }
-  for (let n = 0; n < 60; n++) { const p = spot(true), fl = heightAt(p.x, p.z); if (fl < .1 || ceilAt(p.x, p.z) - fl < 3) continue;                                      // stalagmites
+  for (let n = 0; n < 110; n++) { const p = spot(true), fl = heightAt(p.x, p.z); if (fl < .1 || ceilAt(p.x, p.z) - fl < 3) continue;                                      // stalagmites
     const l = .6 + cr() * 1.6; rock.push(bake(new THREE.ConeGeometry(.2 + l * .14, l, 5), ROCK[n & 3], M(p.x, fl + l / 2 - .15, p.z, 0, cr() * 6, 0), { jit: .1, shade: [.8, 1.05] })); }
   if (rock.length) { const m = new THREE.Mesh(merge(rock), vcMat); scene.add(m); }
   // crystals glow on their own
@@ -835,26 +851,26 @@ if (cave) (function () {
     for (let k = 0; k < n; k++) { const h = (big ? 1.6 : .7) + cr() * (big ? 2 : 1.3), a = cr() * 6.283, tilt = k ? .25 + cr() * .5 : .08, off = k ? .25 + cr() * .4 : 0;
       cry.push(bake(new THREE.CylinderGeometry(0, .11 + h * .09, h, 5), hex, M(x + Math.cos(a) * off, y + h * .42, z + Math.sin(a) * off, Math.cos(a) * tilt, a, -Math.sin(a) * tilt), { jit: .1, shade: [.55, 1.15] })); }
     caveGlow.push({ x, y: y + 1.2, z, c: hex }); };
-  for (let n = 0; n < 34; n++) { const p = spot(true), fl = heightAt(p.x, p.z); if (ceilAt(p.x, p.z) - fl < 3) continue; cluster(p.x, Math.max(fl, -.2), p.z, false, CC[(cr() * 4) | 0]); }
-  { const ix = C.x + cave.px * 8, iz = C.z + cave.pz * 8; cluster(ix, .5, iz, true, CC[0]); cluster(ix + 1.3, .3, iz + .6, true, CC[1]); cluster(ix - 1.2, .3, iz - .8, false, CC[2]); }
+  for (let n = 0; n < 60; n++) { const p = spot(true), fl = heightAt(p.x, p.z); if (ceilAt(p.x, p.z) - fl < 3) continue; cluster(p.x, Math.max(fl, -.2), p.z, false, CC[(cr() * 4) | 0]); }
+  { const ix = C.x + cave.px * 11, iz = C.z + cave.pz * 11; cluster(ix, .5, iz, true, CC[0]); cluster(ix + 1.3, .3, iz + .6, true, CC[1]); cluster(ix - 1.2, .3, iz - .8, false, CC[2]); }
   scene.add(new THREE.Mesh(merge(cry), crystalMat));
   // glow-worms on the ceiling
   const wp = [], wc = [], wk = K(0);
-  for (let n = 0; n < 900; n++) { const p = spot(false), cy = ceilAt(p.x, p.z); if (cy > 500 || cy - heightAt(p.x, p.z) < 4) continue; wp.push(p.x, cy - .18, p.z); wk.setHex(cr() < .7 ? 0x8ff2ff : 0x9affc0).multiplyScalar(.5 + cr() * .5); wc.push(wk.r, wk.g, wk.b); }
+  for (let n = 0; n < 1700; n++) { const p = spot(false), cy = ceilAt(p.x, p.z); if (cy > 500 || cy - heightAt(p.x, p.z) < 4) continue; wp.push(p.x, cy - .18, p.z); wk.setHex(cr() < .7 ? 0x8ff2ff : 0x9affc0).multiplyScalar(.5 + cr() * .5); wc.push(wk.r, wk.g, wk.b); }
   const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(wp, 3)); wg.setAttribute('color', new THREE.Float32BufferAttribute(wc, 3));
   const worms = new THREE.Points(wg, new THREE.PointsMaterial({ size: 2.3, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: .9, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
   worms.frustumCulled = false; scene.add(worms); cave.worms = worms;
   // daylight leaking through cracks above the lake
-  for (const o of [[-6, 3], [7, -5], [1, 9]]) { const x = C.x + o[0], z = C.z + o[1], cy = Math.min(ceilAt(x, z), 30), h = cy + .3;
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(.5, 2.6, h, 10, 1, true), shaftMat); m.position.set(x, h / 2 - .3, z); m.rotation.z = o[0] * .012; scene.add(m); }
+  for (const o of [[-9, 4], [10, -8], [2, 15], [-16, -12]]) { const x = C.x + o[0], z = C.z + o[1], cy = Math.min(ceilAt(x, z), 40), h = cy + .3;
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(.6, 3.4, h, 10, 1, true), shaftMat); m.position.set(x, h / 2 - .3, z); m.rotation.z = o[0] * .012; scene.add(m); }
 })();
 function caveFrame(dt) {
   let k = 0;
-  if (cave) { const q = cave.near(S.x, S.z); if (q.i >= cave.iA && q.i <= cave.iB && (q.d < 13 || q.dc < 31)) k = sstep(0, 7, Math.min(q.i - cave.iA, cave.iB - q.i) + 1); }
+  if (cave) { const q = cave.near(S.x, S.z); if (q.i >= cave.iA && q.i <= cave.iB && (q.d < 17.5 || q.dc < 45)) k = sstep(0, 7, Math.min(q.i - cave.iA, cave.iB - q.i) + 1); }
   caveK += (k - caveK) * Math.min(1, dt * 2.5); if (caveK < .002) caveK = 0;
   if (!cave) return;
   cave.worms.material.size = 2.3 * pixelRatio; shaftMat.opacity = caveK * (.05 + .13 * E.glow);
-  let best = null, bd = 50 * 50; for (const g of caveGlow) { const d = (g.x - S.x) * (g.x - S.x) + (g.z - S.z) * (g.z - S.z); if (d < bd) { bd = d; best = g; } }
+  let best = null, bd = 60 * 60; for (const g of caveGlow) { const d = (g.x - S.x) * (g.x - S.x) + (g.z - S.z) * (g.z - S.z); if (d < bd) { bd = d; best = g; } }
   if (best && caveK > 0) { v3.set(best.x, best.y + .6, best.z); if (caveLight.intensity < .01) caveLight.position.copy(v3); else caveLight.position.lerp(v3, Math.min(1, dt * 2.5)); tmpC.setHex(best.c); caveLight.color.lerp(tmpC, Math.min(1, dt * 2.5)); caveLight.intensity = caveK * (1.25 + .15 * Math.sin(clock * 2.3)); } else caveLight.intensity = 0;
 }
 
@@ -951,6 +967,16 @@ function caveFrame(dt) {
   scatter(butte, forms[0], rockMat, true); scatter(spire, forms[1], rockMat, true); scatter(mesa, forms[2], rockMat, true); scatter(boulder, boulders, rockMat, true);
   scatter(pine, P[0], treeMat, true, 'pine'); scatter(oak, P[1], treeMat, true, 'leaf'); scatter(birch, P[2], treeMat, true, 'leaf'); scatter(palm, P[3], treeMat, true);
   scatter(bush, bushes, treeMat, false, 'bush'); scatter(reed, reeds, vcMat, false); scatter(log, logs, vcMat, false);
+  { const dr = mulberry32(31337), pebbles = [], ferns = [], scrub = [], dp = a => a[(dr() * a.length) | 0];
+    const blade = (a, lean, w, h) => { const q = new THREE.ConeGeometry(w, h, 4); q.scale(1, 1, .3); q.translate(0, h * .48, 0); q.rotateX(lean); q.rotateY(a); return bake(q, 0xffffff, M(0, 0, 0), { shade: [.6, 1.1], jit: .1 }); };
+    const fern = merge([0, 1, 2, 3, 4, 5].map(i => blade(i * 1.047 + .2, .95, .17, .95))), tuft = merge([0, 1, 2, 3, 4, 5, 6].map(i => blade(i * .9, .25 + (i % 3) * .2, .06, .7 + (i % 2) * .3)));
+    const pebble = weld(merge([bake(new THREE.DodecahedronGeometry(1, 0), 0xffffff, M(0, .28, 0, .4, .2, 0, 1.2, .6, 1), { warp: .18, shade: [.8, 1.05], jit: .06, mask: 0 })]));
+    for (let n = 0; n < 11000; n++) { const x = (dr() * 2 - 1) * (HALF - 30), z = (dr() * 2 - 1) * (HALF - 30), h = heightAt(x, z), k = dr(), s0 = dr(), ry = dr() * 6.28;
+      if (h < .5 || slopeAt(x, z, 2) > .7 || roadAt(x, z) > .25 || !awayFromCamps(x, z, 7)) continue; const b = biome(x, z);
+      if (k < .42) pebbles.push({ x, z, y: h - .05, s: .12 + s0 * s0 * .55, sy: .6 + dr() * .5, ry, tint: b > .5 ? dp([0xc98a62, 0xb5704c, 0xd9a47a, 0xa8603e]) : dp([0x9a948e, 0x7e7a76, 0xaea69c]) });
+      else if (b > .5) { if (h > 1.4) scrub.push({ x, z, y: h - .04, s: .7 + s0 * .9, ry, tint: dp([0xa8a060, 0x8f9a58, 0xc2ae6a, 0x7f8a54]) }); }
+      else if (surfaceAt(x, z, h, slopeAt(x, z, 2)) === 0 && forestAt(x, z) > .18) ferns.push({ x, z, y: h - .04, s: .6 + s0 * .8, ry, tint: dp([0x5f9a4a, 0x4f8a48, 0x76a850]) }); }
+    scatter(pebble, pebbles, rockMat, false, undefined, 150); scatter(fern, ferns, treeMat, false, 'bush', 170); scatter(tuft, scrub, treeMat, false, undefined, 170); }
 })();
 
 const TINTS = { pine: [[0x3a7a52, 0x448458, 0x34704a, 0x4c8a56], [0x2f6a4a, 0x357452, 0x2a5c4c, 0x3d7a4e], null, [0xdfe9e6, 0xc9d8d4, 0xb4c8c2, 0x9ab4aa]],
@@ -1058,7 +1084,7 @@ const HP = Math.PI / 2;
 const PAINTS = [0xd89b2e, 0xc8472f, 0x8fb8d8, 0x3f6a4c, 0xe9dfc8, 0x5a3f6a];
 const brakeMat = new THREE.MeshBasicMaterial({ color: 0x7a1f1a }), lampMat = new THREE.MeshBasicMaterial({ color: 0xfff3c4 });
 const glassMat = new THREE.MeshPhongMaterial({ color: 0x3a5466, flatShading: true, shininess: 140, specular: 0xc4c4c0, transparent: true, opacity: .42, depthWrite: false });
-const bodyMat = new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 30, specular: 0x3a3030 });
+const bodyMat = new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 80, specular: 0x7a7068 });
 const wheelMat = new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 8 });
 const DARK = 0x25272a, STEEL = 0x9aa1a8, RUB = 0x1e1f21, CREAM = 0xefe6d0, SEAT = 0x4a3a34, KHAKI = 0x8a7a4e, WOOD = 0x7a5a3a;
 function makeKit(paint) {
@@ -1439,7 +1465,7 @@ $('cPrev').addEventListener('click', () => pickCar(sel.car - 1)); $('cNext').add
 let everStarted = false;
 function openMenu() { closeMap(); endVista(); steerEnd(); menuAt = performance.now(); S.started = false; root.classList.add('inmenu'); refreshMenu(); setMusicGain(); play('click'); }
 function startGame() { if (S.started) return; root.classList.remove('inmenu'); S.started = true; initAudio(); camYaw = S.yaw; orbit = 0; orbitPitch = 0;
-  if (!everStarted) { toast('Follow the blue arrows: roads link the camps, trails lead to the sights', 5); play('starter'); } else play('click');
+  if (!everStarted) { toast('Follow the blue arrows to each place, then drive into its glowing circle to look around', 5); play('starter'); } else play('click');
   everStarted = true; setMusicGain(); if (pad.on) showPadHint(); }
 
 /* ---------- input: touch, keyboard, controller ---------- */
@@ -1466,7 +1492,7 @@ function toggleWinch() { if (S.winch) { S.winch = null; play('unhook'); return; 
 function toCamp() { if (S.flooded || vista) return; play('whoosh'); fadeTo('Making camp at ' + camps[S.lastCamp].name, () => { placeAtCamp(S.lastCamp); startCamp(camps[S.lastCamp]); }); }
 function nextCam() { camMode = (camMode + 1) % 3; play('click'); }
 function toggleMap() { if (mapOpen) closeMap(); else openMap(); }
-function horn() { play('horn'); }
+function horn() { play('horn'); hornAt = clock; }
 function nextTime(d) { pickTime(TIMES[(TIMES.indexOf(timeName) + (d || 1) + 4) % 4]); if (S.started) toast(TIME_LABEL[timeName], 1.4); }
 function cycleGfx() { if (autoQ) { autoQ = false; setQuality(2); } else if (quality > 0) setQuality(quality - 1); else { autoQ = true; setQuality(2); } save(); play('tick'); }
 tap('bLow', toggleLow); tap('bWinch', toggleWinch); tap('bCam', nextCam); tap('bReset', toCamp); tap('bMenu', openMenu); $('mapClose').addEventListener('click', closeMap);
@@ -1478,15 +1504,15 @@ const keymap = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', 
 window.addEventListener('keydown', e => { const c = e.key.toLowerCase();
   if (!S.started) { if (e.repeat) return; if (c === 'enter' || c === ' ') startGame(); if (c === 'arrowleft') pickCar(sel.car - 1); if (c === 'arrowright') pickCar(sel.car + 1); if (c === 'arrowup') nextTime(-1); if (c === 'arrowdown') nextTime(1); if (c === 'p') pickPaint(sel.paint + 1); if (c === 's') pickSeason(season + 1); return; }
   const k = keymap[e.key] || keymap[c]; if (k) { inp[k] = 1; e.preventDefault(); }
-  if (e.repeat) return; if (c === 'l') toggleLow(); if (c === 'e') toggleWinch(); if (c === 'c') nextCam(); if (c === 'r') toCamp(); if (c === 'm') toggleMap(); if (c === 'h') horn(); if (c === 'escape') { if (mapOpen) closeMap(); else openMenu(); } });
+  if (e.repeat) return; if (c === 'l') toggleLow(); if (c === 'e') toggleWinch(); if (c === 'c') nextCam(); if (c === 'r') toCamp(); if (c === 'enter' || c === 'f') acceptPlace(); if (c === 'm') toggleMap(); if (c === 'h') horn(); if (c === 'escape') { if (mapOpen) closeMap(); else openMenu(); } });
 window.addEventListener('keyup', e => { const k = keymap[e.key] || keymap[e.key.toLowerCase()]; if (k) inp[k] = 0; });
 let dragId = null, dragX = 0, dragY = 0;
-canvas.addEventListener('pointerdown', e => { usingTouch(e); if (vista && vista.t > .8) { endVista(); return; }
+canvas.addEventListener('pointerdown', e => { usingTouch(e); if (vista) { if (dragId === null) { dragId = e.pointerId; dragX = e.clientX; dragY = e.clientY; } return; }
   if (S.started && !mapOpen && e.pointerType !== 'mouse' && steer.id === null && localXY(e)[0] < W * .5) { steerStart(e); return; }
   if (dragId === null) { dragId = e.pointerId; dragX = e.clientX; dragY = e.clientY; } });
 window.addEventListener('pointermove', e => { if (e.pointerId === steer.id) { steerMove(e); return; } if (e.pointerId !== dragId) return; let dx = e.clientX - dragX, dy = e.clientY - dragY; dragX = e.clientX; dragY = e.clientY;
   if (rotated) { const t = dx; dx = dy * rotated; dy = -t * rotated; }
-  if (!S.started) menuA -= dx * .008; else { orbit -= dx * .008; orbitPitch = clamp(orbitPitch + dy * .004, -.25, .8); } });
+  if (vista) sceneLook(dx * .0052, dy * .0042); else if (!S.started) menuA -= dx * .008; else { orbit -= dx * .008; orbitPitch = clamp(orbitPitch + dy * .004, -.25, .8); } });
 const endDrag = e => { if (e.pointerId === steer.id) steerEnd(); if (e.pointerId === dragId) dragId = null; }; window.addEventListener('pointerup', endDrag); window.addEventListener('pointercancel', endDrag);
 document.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -1513,9 +1539,9 @@ function pollPad(dt) {
   else if (mapOpen) { pad.steer = clamp(Math.sign(sx) * sx * sx * .6 + sx * .4, -1, 1); pad.gas = b(7); pad.brake = b(6); any = pad.gas > .1 || pad.brake > .1;
     edge(12, () => mapMove(-1)); edge(13, () => mapMove(1)); edge(0, mapChoose); edge(1, closeMap); edge(2, closeMap); edge(9, closeMap); edge(3, () => {}); edge(4, () => {}); edge(5, () => {}); edge(8, () => {}); edge(10, () => {}); edge(11, () => {}); }
   else { pad.steer = clamp(Math.sign(sx) * sx * sx * .6 + sx * .4 + b(15) - b(14), -1, 1); pad.gas = Math.max(b(7), b(0)); pad.brake = Math.max(b(6), b(1));
-    if (rx || ry) { orbit -= rx * dt * 2.4; orbitPitch = clamp(orbitPitch + ry * dt * 1.2, -.25, .8); pad.look = .8; } else if (pad.look > 0) pad.look -= dt;
+    if (vista) { if (rx || ry) sceneLook(-rx * dt * 1.7, -ry * dt * 1.2); } else if (rx || ry) { orbit -= rx * dt * 2.4; orbitPitch = clamp(orbitPitch + ry * dt * 1.2, -.25, .8); pad.look = .8; } else if (pad.look > 0) pad.look -= dt;
     any = pad.gas > .1 || pad.brake > .1 || Math.abs(pad.steer) > .2;
-    edge(2, toggleWinch); edge(3, nextCam); edge(4, toggleLow); edge(5, horn); edge(8, toCamp); edge(9, openMenu); edge(12, openMap); edge(10, horn); edge(11, horn); edge(0, () => {}); edge(1, () => {}); edge(13, () => {}); }
+    edge(2, toggleWinch); edge(3, nextCam); edge(4, toggleLow); edge(5, horn); edge(8, toCamp); edge(9, openMenu); edge(12, openMap); edge(10, horn); edge(11, horn); edge(0, () => {}); edge(1, () => { if (vista && vista.t > .6) endVista(); }); edge(13, acceptPlace); }
   if (any && !pad.on) { pad.on = true; root.classList.add('pad'); if (S.started) showPadHint(); }
 }
 let padHintT = 0; function showPadHint() { $('padhint').classList.add('show'); padHintT = 7; }
@@ -1753,7 +1779,7 @@ $('flip').addEventListener('click', () => { flip = !flip; layout(); });
 
 /* ---------- physics ---------- */
 const wh = [0, 0, 0, 0];
-function step(dt) {
+function step(dt) { if (vista) { S.v = 0; return; }          // parked while you look around
   const sY = Math.sin(S.yaw), cY = Math.cos(S.yaw);
   for (let i = 0; i < 4; i++) { const lx = WL[i][0], lz = WL[i][1]; wh[i] = heightAt(S.x + sY * lz + cY * lx, S.z + cY * lz - sY * lx); }
   const pitch = Math.atan2((wh[0] + wh[1] - wh[2] - wh[3]) / 2, WHEELBASE), roll = Math.atan2((wh[0] + wh[2] - wh[1] - wh[3]) / 2, TRACK);
@@ -1837,7 +1863,7 @@ function tick(now) {
     puff(rearX + cY * sd, S.ground + .3, rearZ - sY * sd, S.surf === 3 ? 0x6a4e3a : S.surf === 4 ? 0xffffff : biome(S.x, S.z) > .5 ? 0xe8b48a : 0xd8c09a, 1); }
   let nearCamp = camps[0], nd = 1e9;
   camps.forEach((c, i) => { c.fire.scale.y = .8 + Math.sin(clock * 9 + i) * .25; c.fire.rotation.y = clock * 2; const d = Math.hypot(c.x - S.x, c.z - S.z); if (d < nd) { nd = d; nearCamp = c; }
-    if (S.started && d < 13) { if (!c.found) { c.found = true; toast('Camp found: ' + c.name, 3.5); play('camp'); rumble(200, .5); refreshHud(); checkDone(); } if (S.lastCamp !== i) { S.lastCamp = i; save(); } } });
+    if (S.started && d < (c.R || 13)) { if (!c.found) { c.found = true; toast('Camp found: ' + c.name, 3.5); play('camp'); rumble(200, .5); refreshHud(); checkDone(); } if (S.lastCamp !== i) { S.lastCamp = i; save(); } } });
   if (nd < 140 && Math.random() < .25) puff(nearCamp.x + (Math.random() - .5) * .3, nearCamp.gy + 1.2, nearCamp.z + (Math.random() - .5) * .3, 0xb8a8a8, 1.6, .5);
   for (let i = 0; i < DN; i++) if (dustLife[i] > 0) { dustLife[i] -= dt * .75; dustPos[i * 3] += dustVel[i * 3] * dt; dustPos[i * 3 + 1] += dustVel[i * 3 + 1] * dt; dustPos[i * 3 + 2] += dustVel[i * 3 + 2] * dt; dustVel[i * 3 + 1] -= dt * .5; if (dustLife[i] <= 0) dustPos[i * 3 + 1] = -100; }
   dustG.attributes.position.needsUpdate = true; dustG.attributes.color.needsUpdate = true;
@@ -1848,8 +1874,8 @@ function tick(now) {
   for (const s of stamps) if (!s.got) { s.mesh.rotation.y = clock * 1.5; s.mesh.position.y = s.y + Math.sin(clock * 2 + s.x) * .2;
     if (S.started && Math.hypot(s.x - S.x, s.z - S.z) < 3.8) { s.got = true; s.mesh.visible = false; toast('Trail stamp collected', 1.8); play('stamp'); rumble(120, .4); refreshHud(); save(); checkDone(); } }
   for (const s of sights) { if (s.beamPivot) s.beamPivot.rotation.y = clock * .7; const sd = Math.hypot(s.x - S.x, s.z - S.z);
-    if (S.started && !s.found && sd < 15) { s.found = true; toast('Sight found: ' + s.name, 3.5); play('sight'); rumble(200, .5); refreshHud(); save(); checkDone(); }
-    if (s.vista) { if (sd > 45) s.armed = true; else if (S.started && !vista && sd < 12 && s.armed !== false && Math.abs(S.v) < 9) { s.armed = false; startVista(s); } } }
+    if (S.started && !s.found && sd < (s.R || 15)) { s.found = true; toast('Sight found: ' + s.name, 3.5); play('sight'); rumble(200, .5); refreshHud(); save(); checkDone(); }
+  }
   beamMat.opacity = E.lights > .5 ? .1 + (1 - E.glow) * .12 : 0;
 
   // light follows the truck
@@ -1858,7 +1884,7 @@ function tick(now) {
   sun.position.set(S.x + v3.x * 190, S.y + v3.y * 190, S.z + v3.z * 190); sun.target.position.set(S.x, S.y, S.z); sun.target.updateMatrixWorld();
   sun.castShadow = quality > 0;
   fireLight.position.set(nearCamp.x, nearCamp.gy + 1, nearCamp.z); fireLight.intensity = Math.max(E.lights * (1.1 + (1 - E.glow) * .5 + Math.sin(clock * 11) * .2) * (nd < 120 ? 1 : 0), vista && vista.camp ? 1.5 + Math.sin(clock * 11) * .25 + Math.sin(clock * 17) * .12 : 0);
-  if ((cullT -= dt) <= 0) { cullT = .3; const lim = scene.fog.far + 20; for (const c of chunks) c.m.visible = Math.hypot(c.x - camera.position.x, c.z - camera.position.z) < lim + c.r; }
+  if ((cullT -= dt) <= 0) { cullT = .3; const lim = scene.fog.far + 20; for (const c of chunks) c.m.visible = Math.hypot(c.x - camera.position.x, c.z - camera.position.z) < Math.min(lim, c.far || 1e9) + c.r; }
   clouds.forEach((c, i) => { c.position.x += dt * 5; if (c.position.x > 1400) c.position.x = -1400; c.visible = i < [12, 5, 9, 12][season]; });
   birds.forEach((b, i) => { const a = clock * b.sp + b.ph, cx = S.x + Math.sin(i * 2.1) * 30, cz = S.z + Math.cos(i * 1.7) * 30;
     b.m.position.set(cx + Math.cos(a) * b.r, Math.max(S.y, 0) + b.h + Math.sin(a * 2) * 3, cz + Math.sin(a) * b.r); b.m.rotation.y = -a; b.m.scale.y = Math.sin(clock * 7 + b.ph); b.m.visible = E.glow > .5; });
@@ -1881,7 +1907,7 @@ function tick(now) {
       if (inC) camera.position.y = Math.min(Math.max(camera.position.y, S.y + 1.4), ceilAt(camera.position.x, camera.position.z) - .5); else camera.position.y = Math.max(camera.position.y, heightAt(camera.position.x, camera.position.z) + 1.2);
       camera.lookAt(S.x, S.y + 1.9, S.z); } }
 
-  guard(() => caveFrame(dt)); guard(() => audioFrame(dt, nd)); guard(() => routeFrame(dt)); guard(guideFrame); guard(() => weatherFrame(dt)); if (caveK > .35) { rainObj.visible = false; flakeObj.visible = false; }
+  guard(() => caveFrame(dt)); guard(() => placeFrame()); guard(() => animalFrame(dt)); guard(() => audioFrame(dt, nd)); guard(() => routeFrame(dt)); guard(guideFrame); guard(() => weatherFrame(dt)); if (caveK > .35) { rainObj.visible = false; flakeObj.visible = false; }
 
   if (toastT > 0 && (toastT -= dt) <= 0) $('toast').classList.remove('show');
   if (padHintT > 0 && (padHintT -= dt) <= 0) $('padhint').classList.remove('show');
@@ -1902,23 +1928,109 @@ function guard(fn) { try { fn(); } catch (e) { report(e); } }
 function frame(now) { requestAnimationFrame(frame); try { tick(now); } catch (e) { report(e); try { renderer.render(scene, camera); } catch (_) {} } }
 canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); $('fadeMsg').textContent = 'Graphics were reset — reloading'; $('fade').classList.add('show'); setTimeout(() => location.reload(), 1200); });
 let vista = null, vistaK = 0;
-function startVista(s) { if (vista || mapOpen || !S.started) return; $('vcapSub').textContent = 'tap or press gas to drive on'; vista = { s, t: 0 }; if (s.beam) s.beam.visible = false; root.classList.add('vista'); $('vcapName').textContent = s.name; }
-function endVista() { if (!vista) return; if (vista.s.beam) vista.s.beam.visible = true; vista = null; root.classList.remove('vista'); camYaw = S.yaw; orbit = 0; orbitPitch = 0; }
-// CAMP: a quiet minute by the fire. The camera drifts low around the flames with the tent behind and the truck parked alongside.
-function startCamp(c) { endVista(); const th = c.ry || 0; vista = { s: c, t: 0, camp: true, a0: Math.atan2(-Math.cos(th), Math.sin(th)) - .75 }; if (c.beam) c.beam.visible = false;
-  root.classList.add('vista'); $('vcapName').textContent = c.name; $('vcapSub').textContent = 'resting by the fire · tap or press gas to drive on';
-  const a = vista.a0; camera.position.set(c.x + Math.sin(a) * 7.4, c.gy + 1.5, c.z + Math.cos(a) * 7.4); }
-function campCam(dt) { const v = vista, c = v.s; v.t += dt;
-  if (v.t > 22 || (v.t > 1.5 && (inp.gas || inp.brake || pad.gas > .3 || pad.brake > .3))) { endVista(); return; }
-  const a = v.a0 + v.t * .068, r = 7.4 - Math.min(1.6, v.t * .1), cx = c.x + Math.sin(a) * r, cz = c.z + Math.cos(a) * r, cy = Math.max(c.gy + 1.5 + v.t * .025, heightAt(cx, cz) + .8);
-  const kc = Math.min(1, dt * 3), p = camera.position; p.x += (cx - p.x) * kc; p.y += (cy - p.y) * kc; p.z += (cz - p.z) * kc; camera.lookAt(c.x, c.gy + .8, c.z);
-  if (Math.random() < .5) puff(c.x + (Math.random() - .5) * .4, c.gy + .9, c.z + (Math.random() - .5) * .4, Math.random() < .5 ? 0xffb040 : 0xff7a28, 2.6, .7); }
-function vistaCam(dt) { if (vista.camp) { campCam(dt); return; } const v = vista, s = v.s; v.t += dt; const k = v.t / 9.5;
-  if (k >= 1 || (v.t > 1.2 && (inp.gas || inp.brake || pad.gas > .3 || pad.brake > .3))) { endVista(); return; }
-  const a = s.view + Math.sin((k - .5) * Math.PI) * s.sweep, cx = s.x - Math.sin(s.view) * s.back, cz = s.z - Math.cos(s.view) * s.back;
-  const cy = Math.max(heightAt(cx, cz), s.y) + s.up + k * s.rise, kc = Math.min(1, dt * 2.5), p = camera.position;
-  p.x += (cx - p.x) * kc; p.y += (cy - p.y) * kc; p.z += (cz - p.z) * kc;
-  camera.lookAt(p.x + Math.sin(a) * 100, p.y - 100 * s.tilt, p.z + Math.cos(a) * 100); }
+// Every place has a scene. It opens with a slow camera move, then the camera is yours: drag to look all the way round, and drive on when you like.
+const ORBIT = { lighthouse: [27, 9, 8], tower: [22, 8, 6], arch: [25, 6, 5], jetty: [22, 5, 1.5], summit: [17, 5, 2], cave: [21, 5.5, 3], lake: [15, 3.2, 1.4] };   // distance, height, height looked at
+function openScene(s, o) { if (mapOpen || !S.started) return false; if (vista) endVista(); vista = Object.assign({ s, t: 0, free: false, yaw: 0, pitch: 0 }, o);
+  if (s.beam) s.beam.visible = false; if (s.ring) s.ring.visible = false; S.v = 0; steerEnd(); dragId = null; root.classList.add('vista'); root.classList.remove('free');
+  $('vcapName').textContent = s.name; $('vcapSub').textContent = (o.camp ? 'resting by the fire · ' : '') + 'drag to look around'; showPrompt(null); return true; }
+function startVista(s) { openScene(s, s.back !== undefined ? {} : { orb: ORBIT[s.kind] || [20, 6, 3], a0: Math.atan2(S.x - s.x, S.z - s.z) + .6 }); }
+function startCamp(c) { const th = c.ry || 0, a = Math.atan2(-Math.cos(th), Math.sin(th)) - .75; if (openScene(c, { camp: true, a0: a })) camera.position.set(c.x + Math.sin(a) * 7.4, c.gy + 1.5, c.z + Math.cos(a) * 7.4); }
+function endVista() { if (!vista) return; const s = vista.s; if (s.beam) s.beam.visible = true; if (s.ring) s.ring.visible = true; vista = null; root.classList.remove('vista', 'free'); camYaw = S.yaw; orbit = 0; orbitPitch = 0; }
+function sceneFree() { const v = vista; if (v.free) return; camera.getWorldDirection(v3); v.yaw = Math.atan2(v3.x, v3.z); v.pitch = Math.asin(clamp(v3.y, -1, 1)); v.free = true; root.classList.add('free'); }
+function sceneLook(dx, dy) { if (!vista || vista.t < .4) return; sceneFree(); vista.yaw += dx; vista.pitch = clamp(vista.pitch + dy, -1.15, 1.15); }
+function vistaCam(dt) { const v = vista, s = v.s, p = camera.position; v.t += dt;
+  if (v.t > 1 && (inp.gas || pad.gas > .3)) { endVista(); return; }
+  if (v.camp && Math.random() < .5) puff(s.x + (Math.random() - .5) * .4, s.gy + .9, s.z + (Math.random() - .5) * .4, Math.random() < .5 ? 0xffb040 : 0xff7a28, 2.6, .7);
+  const kx = inp.right - inp.left; if (kx) sceneLook(-kx * dt * 1.4, 0);
+  if (v.free) { const c = Math.cos(v.pitch); camera.lookAt(p.x + Math.sin(v.yaw) * c * 50, p.y + Math.sin(v.pitch) * 50, p.z + Math.cos(v.yaw) * c * 50); return; }
+  let cx, cy, cz, lx, ly, lz, dur, kc;
+  if (v.camp) { const a = v.a0 + v.t * .068, r = 7.4 - Math.min(1.6, v.t * .1); cx = s.x + Math.sin(a) * r; cz = s.z + Math.cos(a) * r; cy = Math.max(s.gy + 1.5 + v.t * .025, heightAt(cx, cz) + .8); lx = s.x; ly = s.gy + .8; lz = s.z; dur = 16; kc = 3; }
+  else if (v.orb) { const a = v.a0 + v.t * .055, base = Math.max(s.y || 0, 0); cx = s.x + Math.sin(a) * v.orb[0]; cz = s.z + Math.cos(a) * v.orb[0];
+    cy = Math.min(Math.max(base + v.orb[1], Math.max(heightAt(cx, cz), 0) + 1.6), ceilAt(cx, cz) - .8); lx = s.x; ly = base + v.orb[2]; lz = s.z; dur = 13; kc = 2.5; }
+  else { const k = Math.min(1, v.t / 9.5), a = s.view + Math.sin((k - .5) * Math.PI) * s.sweep; cx = s.x - Math.sin(s.view) * s.back; cz = s.z - Math.cos(s.view) * s.back; cy = Math.max(heightAt(cx, cz), s.y) + s.up + k * s.rise;
+    lx = cx + Math.sin(a) * 100; ly = cy - 100 * s.tilt; lz = cz + Math.cos(a) * 100; dur = 9.5; kc = 2.5; }
+  const q = Math.min(1, dt * kc); p.x += (cx - p.x) * q; p.y += (cy - p.y) * q; p.z += (cz - p.z) * q; camera.lookAt(lx, ly, lz);
+  if (v.t > dur) sceneFree(); }
+for (const p of camps.concat(sights)) p.R = placeR(p);
+// A glowing circle on the ground marks where each place begins. Inside it you are offered the scene, so nothing depends on stopping in the right spot.
+const places = camps.concat(sights), ringMatS = new THREE.MeshBasicMaterial({ color: 0xe9c4ff, transparent: true, opacity: .5, depthWrite: false, side: THREE.DoubleSide }),
+  ringMatC = new THREE.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: .5, depthWrite: false, side: THREE.DoubleSide });
+let nearPlace = null;
+places.forEach(p => { const camp = camps.includes(p), R = p.R, n = 80, pos = [], idx = [];
+  for (let i = 0; i <= n; i++) { const a = i / n * 6.2832, sn = Math.sin(a), cs = Math.cos(a); for (const r of [R - .8, R]) { const x = p.x + sn * r, z = p.z + cs * r; pos.push(x, Math.max(heightAt(x, z), 0) + .3, z); } }
+  for (let i = 0; i < n; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
+  p.ring = new THREE.Mesh(g, camp ? ringMatC : ringMatS); p.ring.renderOrder = 2; scene.add(p.ring); });
+function showPrompt(p) { if (p === nearPlace) return; nearPlace = p; const el = $('prompt'); if (!p) { el.classList.remove('show'); return; }
+  $('promptName').textContent = p.name; $('promptBtn').textContent = (camps.includes(p) ? 'Rest by the fire' : 'Look around') + ' ▶'; $('promptKey').textContent = root.classList.contains('pad') ? 'D-pad ▼' : ''; el.classList.add('show'); }
+function acceptPlace() { const p = nearPlace; if (!p || vista || !S.started || mapOpen) return; play('click'); if (camps.includes(p)) startCamp(p); else startVista(p); }
+function placeFrame() { ringMatS.opacity = ringMatC.opacity = .42 + .22 * Math.sin(clock * 2.6); let best = null, bd = 1e9;
+  if (S.started && !vista && !mapOpen && !S.flooded) for (const p of places) { const d = Math.hypot(p.x - S.x, p.z - S.z); if (d < p.R && d < bd) { bd = d; best = p; } } showPrompt(best); }
+$('promptBtn').addEventListener('click', acceptPlace); $('sceneExit').addEventListener('click', endVista);
+/* ---------- wildlife: a few animals live near every place. Sit still and they come over to look; drive at them and they run for cover. ---------- */
+let stillT = 0, hornAt = -1e9; const animalSites = [];
+(function buildAnimals() {
+  const ar = mulberry32(7741), box = (w, h, d) => new THREE.BoxGeometry(w, h, d), part = (g, c, m) => bake(g, c, m, { jit: .04 });
+  const leg = (h, c) => merge([part(box(.09, h, .09), c, M(0, -h / 2, 0))]), wing = sx => merge([part(box(.38, .03, .2), 0xb9c0c6, M(sx * .19, 0, 0)), part(box(.12, .032, .16), 0x3a3f46, M(sx * .36, 0, 0))]);
+  const SP = {
+    deer: { n: 3, s: 1, walk: 1.6, run: 11, rad: [7, 10], legY: .8, legs: [[.14, .38], [-.14, .38], [.14, -.38], [-.14, -.38]], leg: leg(.8, 0x7a5234),
+      body: merge([part(box(.42, .48, 1.05), 0x9a6a42, M(0, 1.02, 0)), part(box(.24, .56, .26), 0x9a6a42, M(0, 1.38, .5, -.5)), part(box(.2, .22, .34), 0xa5744a, M(0, 1.68, .72)), part(box(.13, .13, .16), 0x4a3526, M(0, 1.63, .93)),
+        part(box(.05, .16, .1), 0x8a5c38, M(.12, 1.84, .62, 0, 0, -.3)), part(box(.05, .16, .1), 0x8a5c38, M(-.12, 1.84, .62, 0, 0, .3)), part(box(.12, .18, .08), 0xf2ead8, M(0, 1.14, -.56)), part(box(.36, .1, .9), 0xd9c3a0, M(0, .8, 0))]) },
+    goat: { n: 3, s: 1, walk: 1.4, run: 9, rad: [6.5, 9], legY: .58, legs: [[.13, .3], [-.13, .3], [.13, -.3], [-.13, -.3]], leg: leg(.58, 0x9c8e78),
+      body: merge([part(box(.4, .44, .86), 0xcdbfa6, M(0, .8, 0)), part(box(.22, .36, .24), 0xcdbfa6, M(0, 1.04, .42, -.45)), part(box(.18, .2, .3), 0xd8ccb6, M(0, 1.18, .58)), part(box(.1, .14, .06), 0x8c7f6a, M(0, 1.04, .7)),
+        part(box(.05, .32, .07), 0x5a5046, M(.07, 1.38, .5, .7)), part(box(.05, .32, .07), 0x5a5046, M(-.07, 1.38, .5, .7)), part(box(.1, .1, .1), 0xbfb199, M(0, .94, -.46))]) },
+    rabbit: { n: 4, s: 1.7, walk: 1.8, run: 8.5, rad: [5.5, 7.5], hop: true,
+      body: merge([part(box(.2, .2, .34), 0xa58a6c, M(0, .2, 0, -.18)), part(box(.16, .16, .18), 0xb0957a, M(0, .35, .2)), part(box(.04, .2, .06), 0x8f7458, M(.045, .53, .16)), part(box(.04, .2, .06), 0x8f7458, M(-.045, .53, .16)),
+        part(box(.09, .09, .07), 0xf4efe6, M(0, .24, -.19))]) },
+    gull: { n: 5, s: 1.6, walk: 1, run: 10, rad: [5.5, 8], fly: true, wingL: wing(-1), wingR: wing(1),
+      body: merge([part(box(.14, .14, .34), 0xf4f2ec, M(0, .27, 0)), part(box(.1, .1, .12), 0xf4f2ec, M(0, .41, .16)), part(box(.04, .04, .1), 0xe8b23a, M(0, .39, .27)), part(box(.1, .03, .14), 0x8d949b, M(0, .29, -.22)),
+        part(box(.02, .18, .02), 0xe08a3a, M(.04, .1, 0)), part(box(.02, .18, .02), 0xe08a3a, M(-.04, .1, 0))]) } };
+  places.forEach((P, pi) => { if (P.kind === 'lake') return;
+    let low = 9; for (let k = 0; k < 8; k++) low = Math.min(low, heightAt(P.x + Math.cos(k * .785) * 34, P.z + Math.sin(k * .785) * 34));
+    const kind = P.kind === 'lighthouse' || P.kind === 'jetty' || low < -.3 ? 'gull' : P.kind === 'cave' ? 'rabbit' : biome(P.x, P.z) > .5 ? 'goat' : pi % 2 ? 'rabbit' : 'deer', sp = SP[kind], site = { x: P.x, z: P.z, on: true, list: [] };
+    for (let i = 0; i < sp.n; i++) { let hx = 0, hz = 0, ok = false;
+      for (let t = 0; t < 24 && !ok; t++) { const a = ar() * 6.283, r = P.R + 5 + ar() * 16; hx = P.x + Math.sin(a) * r; hz = P.z + Math.cos(a) * r; ok = heightAt(hx, hz) > .5 && slopeAt(hx, hz, 3) < .55 && !caveNear(hx, hz, 0); }
+      if (!ok) continue;
+      const g = new THREE.Group(), body = new THREE.Mesh(sp.body, vcMat); body.castShadow = true; g.add(body); g.scale.setScalar(sp.s * (.9 + ar() * .2));
+      const a = { g, sp, home: { x: hx, z: hz }, x: hx, z: hz, yaw: ar() * 6.283, state: 'idle', t: 0, next: ar() * 5, go: false, tx: hx, tz: hz, shy: ar() * 2.5, ph: ar() * 6, rad: lerp(sp.rad[0], sp.rad[1], ar()), ang: 0, fd: 1, legs: [], wings: [], lift: 0 };
+      if (sp.legs) for (const l of sp.legs) { const m = new THREE.Mesh(sp.leg, vcMat); m.position.set(l[0], sp.legY, l[1]); g.add(m); a.legs.push(m); }
+      if (sp.fly) for (const sx of [-1, 1]) { const m = new THREE.Mesh(sx < 0 ? sp.wingL : sp.wingR, vcMat); m.position.set(sx * .07, .32, 0); g.add(m); a.wings.push(m); }
+      scene.add(g); site.list.push(a); }
+    if (site.list.length) animalSites.push(site); });
+})();
+const aTurn = (a, want, rate) => { let d = want - a.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); a.yaw += clamp(d, -rate, rate); };
+// walk or run towards a point; true once there (or when water is in the way)
+function aMove(a, tx, tz, speed, dt) { const dx = tx - a.x, dz = tz - a.z, d = Math.hypot(dx, dz); if (d < .35) return true; aTurn(a, Math.atan2(dx, dz), dt * 9);
+  const st = Math.min(d, speed * dt), nx = a.x + dx / d * st, nz = a.z + dz / d * st; if (!a.sp.fly && heightAt(nx, nz) < .15) return true; a.x = nx; a.z = nz; return false; }
+// somewhere out of sight: behind a tree or rock well away from the car, or failing that just far off
+function aHide(a) { const ax = a.x - S.x, az = a.z - S.z, l = Math.hypot(ax, az) || 1, ux = ax / l, uz = az / l; let best = null, bs = -1e9;
+  if (!a.sp.fly) nearSolids(a.x + ux * 20, a.z + uz * 20, t => { if (t.ghost || t.r > 7) return; const dc = Math.hypot(t.x - S.x, t.z - S.z), da = Math.hypot(t.x - a.x, t.z - a.z); if (dc < 24 || da > 46 || heightAt(t.x, t.z) < .5) return;
+    const sc = dc - da * .4 + ((t.x - a.x) * ux + (t.z - a.z) * uz) * .5; if (sc > bs) { bs = sc; best = t; } });
+  if (best) { const bx = best.x - S.x, bz = best.z - S.z, bl = Math.hypot(bx, bz) || 1; a.tx = best.x + bx / bl * (best.r + 1.3); a.tz = best.z + bz / bl * (best.r + 1.3); }
+  else { let done = false; for (const o of [0, .6, -.6, 1.2, -1.2]) { const c = Math.cos(o), s = Math.sin(o), dx = ux * c - uz * s, dz = uz * c + ux * s, x = a.x + dx * 42, z = a.z + dz * 42; if (a.sp.fly || heightAt(x, z) > .4) { a.tx = x; a.tz = z; done = true; break; } }
+    if (!done) { a.tx = a.home.x; a.tz = a.home.z; } }
+  a.fd = Math.hypot(a.tx - a.x, a.tz - a.z) || 1; a.state = 'flee'; a.t = 0; }
+function animalFrame(dt) { const spd = Math.abs(S.v); stillT = S.started && spd < .6 ? stillT + dt : 0; const honk = clock - hornAt < .4;
+  for (const site of animalSites) { const on = Math.hypot(site.x - S.x, site.z - S.z) < 200; if (on !== site.on) { site.on = on; for (const a of site.list) a.g.visible = on; } if (!on) continue;
+    for (const a of site.list) { const sp = a.sp, dx = S.x - a.x, dz = S.z - a.z, d = Math.hypot(dx, dz), face = Math.atan2(dx, dz); let mv = 0; a.t += dt;
+      if (a.state !== 'flee' && ((spd > 1.5 && d < 15 + spd * 1.1) || (honk && d < 55))) aHide(a);
+      if (a.state === 'idle') { if (stillT > 5 + a.shy && d < 62 && d > a.rad + 1) { a.state = 'curious'; a.t = 0; a.ang = Math.atan2(a.x - S.x, a.z - S.z) + (a.shy - 1.25) * .5; }
+        else { if (a.t > a.next) { const q = a.ph * 7.3 + clock; a.tx = a.home.x + Math.sin(q) * 8; a.tz = a.home.z + Math.cos(q * 1.7) * 8; a.go = true; a.t = 0; a.next = 3 + (a.ph % 1) * 6 + a.shy; }
+          if (a.go) { if (aMove(a, a.tx, a.tz, sp.walk, dt)) a.go = false; else mv = 1; } } }
+      else if (a.state === 'curious') { if (stillT < .2) { a.state = 'home'; }                                    // the car moved off: lose interest
+        else if ((a.t + a.ph) % 2.8 < 1.8) { if (aMove(a, S.x + Math.sin(a.ang) * a.rad, S.z + Math.cos(a.ang) * a.rad, d > a.rad + 7 ? sp.walk * 2.6 : sp.walk * 1.1, dt)) { a.state = 'watch'; a.t = 0; } else mv = 1; } else aTurn(a, face, dt * 5); }   // a few steps, then stop and stare
+      else if (a.state === 'watch') { aTurn(a, face, dt * 5); if (stillT < .2) aHide(a); else if (a.t > 5 + a.shy) { a.state = 'curious'; a.t = 0; a.ang += (a.ph % 1 - .5) * 1.4; } }   // startled when the car starts, otherwise shuffles round for another look
+      else if (a.state === 'flee') { if (aMove(a, a.tx, a.tz, sp.run, dt) || a.t > 10) { a.state = 'hide'; a.t = 0; } else mv = 2; }
+      else if (a.state === 'hide') { aTurn(a, face, dt * 4); if (stillT > 5 + a.shy && d < 75) { a.state = 'curious'; a.t = 0; a.ang = Math.atan2(a.x - S.x, a.z - S.z); } else if (d > 90 && a.t > 6) a.state = 'home'; }
+      else if (aMove(a, a.home.x, a.home.z, sp.walk * 1.3, dt)) { a.state = 'idle'; a.t = 0; a.next = 1; } else mv = 1;
+      a.ph += dt * (mv === 2 ? 16 : mv ? 7.5 : 0);
+      let y = Math.max(heightAt(a.x, a.z), 0);
+      if (sp.hop && mv) y += Math.abs(Math.sin(a.ph * .8)) * (mv === 2 ? .34 : .16);
+      if (sp.fly) { const k = a.state === 'flee' ? clamp(1 - Math.hypot(a.tx - a.x, a.tz - a.z) / a.fd, 0, 1) : 0; a.lift += ((a.state === 'flee' ? Math.sin(k * Math.PI) * 7 + .4 : 0) - a.lift) * Math.min(1, dt * 5); y += a.lift;
+        const fl = a.lift > .15 ? Math.sin(clock * 17 + a.ph) * .85 : 1.25; a.wings[0].rotation.z = fl; a.wings[1].rotation.z = -fl; }
+      const sw = mv ? Math.sin(a.ph) * (mv === 2 ? .8 : .5) : 0; for (let i = 0; i < a.legs.length; i++) a.legs[i].rotation.x = i === 0 || i === 3 ? sw : -sw;
+      a.g.position.set(a.x, y, a.z); a.g.rotation.y = a.yaw; a.g.rotation.x = mv === 2 && !sp.fly ? -.08 : 0; } } }
+
 let doneShown = false;
 function checkDone() { save(); if (!doneShown && camps.every(c => c.found) && sights.every(s => s.found) && stamps.every(s => s.got)) { doneShown = true; play('done'); toast('Every camp, sight and stamp found. The island is yours — keep driving.', 7); } }
 season = savedSeason; if (season !== 2) applySeason();
@@ -1926,7 +2038,7 @@ refreshMenu(); autoDest();
 // the Exit button only exists inside the Android app, where there is something to close
 if (window.NativeApp && window.NativeApp.exit) $('bExit').addEventListener('click', () => { save(); window.NativeApp.exit(); }); else $('bExit').style.display = 'none';
 try { initAudio(); } catch (e) {}
-window.__game = { step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
+window.__game = { animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
 requestAnimationFrame(frame);
 })();
 </script>
