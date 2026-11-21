@@ -1292,18 +1292,31 @@ const TAN = 0xd8c29a, IVORY = 0xe6dcc4, AMBER = 0xf09a2e, HIDE = 0x8f623c;
 const lampBox = (k, x, y, z, w, h) => { for (const sx of [1, -1]) { k.bx(k.B, w + .08, h + .08, .06, DARK, sx * x, y, z); k.bx(k.L, w, h, .05, 0xffffff, sx * x, y, z + .03); k.bx(k.B, .1, h, .06, AMBER, sx * (x + w / 2 + .1), y, z + .01); } };
 const bumper = (k, w, y, z) => { k.bx(k.B, w, .24, .26, DARK, 0, y, z); for (const sx of [1, -1]) { k.bx(k.B, .3, .3, .3, DARK, sx * w * .27, y, z + .02); k.bx(k.B, .2, .08, .04, AMBER, sx * w * .38, y - .01, z + .14); } };
 const arches = (k, x, zs, y, c) => { for (const sx of [1, -1]) for (const z of zs) { k.bx(k.B, .26, .09, 1.3, c, sx * x, y, z); k.bx(k.B, .26, .36, .09, c, sx * x, y - .15, z + .66, .5); k.bx(k.B, .26, .36, .09, c, sx * x, y - .15, z - .66, -.5); } };
-// short 4x4 with a canvas top
-function bodyJeep(k) { const { bx, cy, B, G, L, PAINT, P2 } = k;
-  bx(B, 1.66, .56, 3.7, PAINT, 0, 1.02, 0); bx(B, 1.7, .09, 1.5, DARK, 0, .74, 0); bx(B, 1.3, .24, 1.3, PAINT, 0, 1.38, 1.2); bx(B, 1.16, .04, 1.16, P2, 0, 1.51, 1.2);
-  for (const sx of [1, -1]) { bx(B, .2, .05, 1.3, DARK, sx * .92, .68, 0); bx(B, .36, .1, 1.2, DARK, sx * .84, 1.2, 1.3); bx(B, .36, .1, .44, DARK, sx * .84, 1.08, 2.0, .55); bx(B, .22, .11, .06, AMBER, sx * .84, 1.08, 2.14, .55);
-    cy(L, .15, .15, .06, 10, 0xffffff, sx * .46, 1.3, 1.94, HP); cy(B, .18, .18, .04, 10, P2, sx * .46, 1.3, 1.92, HP); cy(B, .05, .05, .04, 6, AMBER, sx * .46, 1.06, 1.94, HP);
-    bx(B, .08, .7, .08, PAINT, sx * .75, 1.62, .56, -.14); bx(B, .07, .64, .1, DARK, sx * .79, 1.62, -.5); bx(B, .06, .64, 1.3, TAN, sx * .79, 1.62, -1.2);
-    bx(G, .04, .5, .9, 0xffffff, sx * .8, 1.6, 0); bx(G, .04, .36, .7, 0xffffff, sx * .825, 1.66, -1.2); }
-  bx(B, 1.24, .52, .08, PAINT, 0, 1.26, 1.9); for (let i = -2; i <= 2; i++) bx(B, .06, .32, .03, DARK, i * .1, 1.28, 1.95);
-  bumper(k, 1.9, .8, 2.1); arches(k, .95, [-1.3], 1.1, DARK); k.sides(.836, 1.02, [.45, -.5]); k.mirrors(.84, 1.44, .6); k.rear(-1.86, 1.06, 1.68); k.seats(1.1, -.1);
-  bx(B, 1.56, .07, .1, PAINT, 0, 1.95, .5); bx(G, 1.42, .58, .04, 0xffffff, 0, 1.62, .55, -.14);
-  bx(B, 1.6, .1, 2.36, TAN, 0, 1.98, -.68); bx(B, 1.36, .07, 2.1, 0xe2cea8, 0, 2.05, -.68); bx(B, 1.6, .64, .06, TAN, 0, 1.62, -1.86); bx(G, 1.0, .34, .04, 0xffffff, 0, 1.68, -1.9);
-  return { spare: [0, 1.22, -2.08, 0, HP, 0] }; }
+// the Mule: a compact two-door 4x4, ported from the owner's createJeep() model onto the game's body kit.
+// Same shapes and proportions, with three adaptations: lengths are stretched 16% so the arches sit over the game's wheels, the cabin is a frame
+// rather than a solid block so you can see in and out, and the body colour follows the chosen paint.
+function bodyJeep(k) { const { bx, cy, B, G, L, R, PAINT, P2 } = k, Z = 1.16, Y = -.07, LITE = K(PAINT).lerp(K(0xffffff), .14).getHex();
+  const b = (A, w, h, d, c, x, y, z, rx) => bx(A, w, h, d > .3 ? d * Z : d, c, x, y + Y, z * Z, rx || 0);
+  // main body and short hood
+  b(B, 1.72, .58, 3.05, PAINT, 0, .98, 0); b(B, 1.68, .28, .95, LITE, 0, 1.34, .93); b(B, 1.76, .08, 1.1, DARK, 0, .7, -.02);
+  // front grille with vertical slats, round headlights, orange indicators
+  b(B, .78, .47, .08, DARK, 0, 1.16, 1.57); for (let i = 0; i < 5; i++) b(B, .06, .34, .025, STEEL, -.24 + i * .12, 1.16, 1.6);
+  for (const x of [-.62, .62]) { cy(L, .17, .17, .07, 10, 0xffffff, x, 1.2 + Y, 1.61 * Z, HP); cy(B, .2, .2, .04, 10, P2, x, 1.2 + Y, 1.61 * Z - .03, HP); b(B, .19, .11, .06, AMBER, x * 1.36, 1.0, 1.585); }
+  // chunky bumpers front and rear
+  b(B, 2.02, .2, .28, DARK, 0, .62, 1.72); b(B, 2.02, .2, .28, DARK, 0, .62, -1.62); for (const x of [-.72, .72]) b(B, .34, .24, .32, STEEL, x, .62, 1.75);
+  // two-door cabin: body-colour lower walls and frame, upright windscreen, glass all round, solid tan roof
+  for (const side of [-1, 1]) { b(B, .06, .36, 1.42, PAINT, side * .78, 1.43, -.48); b(B, .09, .72, .12, LITE, side * .76, 1.75, .27); b(B, .1, .52, .12, PAINT, side * .76, 1.84, -1.15); b(B, .07, .08, 1.42, PAINT, side * .78, 2.07, -.48);
+    b(G, .045, .46, 1.26, 0xffffff, side * .79, 1.82, -.46); }
+  b(B, 1.62, .36, .06, PAINT, 0, 1.43, -1.17); b(B, 1.62, .36, .06, PAINT, 0, 1.43, .2); b(B, 1.55, .09, .09, LITE, 0, 2.13, .28); b(B, 1.62, .08, .08, PAINT, 0, 2.07, -1.17);
+  b(G, 1.42, .68, .045, 0xffffff, 0, 1.76, .31, -.16); b(G, 1.46, .46, .04, 0xffffff, 0, 1.82, -1.19); b(B, 1.72, .13, 1.55, TAN, 0, 2.18, -.42); b(B, 1.5, .06, 1.34, 0xd6c29c, 0, 2.27, -.42);
+  // doors: panels, handles, hinges; side steps and mirrors
+  for (const side of [-1, 1]) { const x = side * .84; b(B, .055, .52, .82, LITE, x, 1.35, -.47); b(B, .06, .07, .16, DARK, x * 1.04, 1.48, -.18); b(B, .08, .14, .1, STEEL, x * 1.03, 1.3, -.9); b(B, .08, .14, .1, STEEL, x * 1.03, 1.3, .05);
+    b(B, .18, .12, .85, DARK, side * .94, .69, -.35); b(B, .07, .06, .2, DARK, side * .9, 1.72, .27); b(B, .08, .2, .16, DARK, side * .98, 1.74, .26); }
+  // angular wheel-arch flares: a flat top and two raked ends over each of the game's wheels
+  for (const side of [-1, 1]) for (const z of [-1.3, 1.3]) { bx(B, .3, .13, .94, DARK, side * .95, 1.1, z); bx(B, .3, .13, .56, DARK, side * .95, .93, z + .66, .78); bx(B, .3, .13, .56, DARK, side * .95, .93, z - .66, -.78); bx(B, .1, .3, 1.5, DARK, side * .82, .98, z); }
+  // rear lights and seats
+  for (const x of [-.65, .65]) b(R, .16, .2, .07, 0xffffff, x, 1.0, -1.58); k.seats(1.2, -.3);
+  return { spare: [0, 1.2, -2.07, 0, HP, 0] }; }
 // long pickup with a roll bar and spot lamps
 function bodyTruck(k) { const { bx, cy, B, G, L, PAINT, P2 } = k;
   bx(B, 1.72, .34, 4.74, PAINT, 0, .92, 0); bx(B, 1.72, .26, 4.74, TAN, 0, 1.22, 0); bx(B, 1.76, .09, 1.6, DARK, 0, .74, .1); bx(B, 1.6, .16, 1.42, TAN, 0, 1.42, 1.64); bx(B, 1.4, .04, 1.2, 0xe2cea8, 0, 1.51, 1.64);
