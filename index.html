@@ -1315,20 +1315,89 @@ function bodyTruck(k) { const { bx, cy, B, G, L, PAINT, P2 } = k;
   arches(k, .96, [1.55, -1.55], 1.08, DARK); k.sides(.866, 1.05, [.7, -.42]); k.mirrors(.86, 1.5, .78); k.rear(-2.42, 1.12, 1.72); k.seats(1.12, .1);
   bx(B, .7, .3, .5, WOOD, -.3, 1.54, -1.1); bx(B, .5, .26, .4, 0x4a6a3e, .4, 1.52, -1.7); cy(B, .17, .17, 1.2, 8, KHAKI, 0, 1.56, -2.05, 0, 0, HP);
   return { spare: null }; }
-// small open-top 4x4 with a roll cage
-function bodyRover(k) { const { bx, cy, B, G, L, PAINT, P2 } = k;
-  bx(B, 1.5, .32, 3.3, PAINT, 0, .9, 0); bx(B, 1.5, .3, 3.3, TAN, 0, 1.2, 0); bx(B, 1.54, .08, 1.3, DARK, 0, .72, 0); bx(B, 1.36, .14, 1.06, TAN, 0, 1.4, 1.1); bx(B, 1.1, .04, .9, 0xe2cea8, 0, 1.48, 1.1); bx(B, 1.3, .04, 1.96, DARK, 0, 1.36, -.52);
-  bx(B, 1.2, .44, .08, DARK, 0, 1.2, 1.64);
-  for (let i = 0; i < 3; i++) bx(B, .56, .05, .03, 0x55595e, 0, 1.1 + i * .1, 1.69);
-  for (const sx of [1, -1]) { cy(L, .13, .13, .06, 10, 0xffffff, sx * .43, 1.22, 1.68, HP); bx(B, .14, .2, .16, AMBER, sx * .7, 1.3, 1.6); bx(B, .18, .05, 1.2, DARK, sx * .82, .66, 0);
-    bx(B, .07, .62, .07, TAN, sx * .68, 1.7, .56); bx(G, .04, .01, .01, 0xffffff, sx * .7, 1.6, 0);
-    for (const z of [-.42, -1.42]) cy(B, .045, .045, .8, 6, DARK, sx * .66, 1.74, z); cy(B, .04, .04, 1.0, 5, DARK, sx * .66, 2.14, -.92, HP); cy(B, .04, .04, 1.0, 5, DARK, sx * .66, 2.07, .07, HP + .14);
-    bx(B, .44, .14, .44, HIDE, sx * .34, 1.1, -.08); bx(B, .44, .56, .1, HIDE, sx * .34, 1.44, -.32); bx(B, .44, .12, .4, HIDE, sx * .34, 1.1, -1.0); bx(B, .44, .5, .1, HIDE, sx * .34, 1.4, -1.22); }
-  for (const z of [-.42, -1.42]) cy(B, .045, .045, 1.32, 6, DARK, 0, 2.14, z, 0, 0, HP);
-  bx(B, 1.44, .07, .08, TAN, 0, 2.0, .56); bx(G, 1.3, .54, .04, 0xffffff, 0, 1.7, .56); cy(B, .17, .17, .04, 8, DARK, .34, 1.42, .28, 1.2);
-  cy(B, .15, .15, 1.3, 8, 0xb08a5a, 0, 1.5, -1.5, 0, 0, HP); cy(B, .12, .12, 1.3, 8, 0xa07a4c, 0, 1.44, -1.26, 0, 0, HP);
-  bumper(k, 1.7, .78, 1.8); arches(k, .82, [1.05, -1.05], 1.06, PAINT); k.sides(.756, 1.02, [.42]); k.mirrors(.74, 1.5, .6); k.rear(-1.66, 1.06, 1.5);
-  return { spare: [0, 1.2, -1.86, 0, HP, 0] }; }
+// small open-top 4x4 with a roll cage (body supplied by the owner; L and R added to the first line because the body uses them)
+function bodyOpenTop(k) {
+  const { bx, cy, B, G, L, R, PAINT, P2 } = k;
+
+  // Main chassis and lower body
+  bx(B, 1.48, .42, 3.35, PAINT, 0, .94, 0);
+  bx(B, 1.52, .10, 3.38, DARK, 0, .70, 0);
+  bx(B, 1.48, .08, 3.35, P2, 0, 1.18, 0);
+
+  // Front hood
+  bx(B, 1.38, .30, 1.10, PAINT, 0, 1.29, 1.12);
+  bx(B, 1.40, .05, 1.12, CREAM, 0, 1.45, 1.12);
+
+  // Front grille and bumper
+  bx(B, .72, .38, .07, DARK, 0, 1.05, 1.72);
+  for (let i = -3; i <= 3; i++) bx(B, .045, .30, .04, STEEL, i * .095, 1.05, 1.77);
+  bx(B, 1.62, .15, .20, DARK, 0, .79, 1.78);
+  bx(B, .40, .08, .08, STEEL, 0, .80, 1.90);
+
+  // Front lights, indicators, and fenders
+  for (const sx of [-1, 1]) {
+    cy(B, .145, .145, .07, 10, CREAM, sx * .54, 1.24, 1.76, HP);
+    cy(L, .09, .09, .05, 8, 0xffa32b, sx * .76, 1.19, 1.72, HP);
+    bx(B, .38, .10, 1.0, CREAM, sx * .60, 1.15, .72);
+    bx(B, .10, .12, 1.05, DARK, sx * .69, 1.12, .72);
+  }
+
+  // Rear body and tailgate
+  bx(B, 1.46, .35, .60, PAINT, 0, 1.05, -1.40);
+  bx(B, 1.48, .08, .62, CREAM, 0, 1.24, -1.40);
+  bx(B, 1.58, .14, .16, DARK, 0, .80, -1.72);
+  for (const sx of [-1, 1]) {
+    bx(R, .14, .22, .06, 0xc84b35, sx * .61, 1.12, -1.73);
+    bx(B, .10, .12, .50, DARK, sx * .70, 1.02, -1.34);
+  }
+
+  // Side doors and cream lower trim
+  for (const sx of [-1, 1]) {
+    bx(B, .07, .40, 1.05, PAINT, sx * .73, 1.10, -.35);
+    bx(B, .08, .06, 1.05, CREAM, sx * .75, .83, -.35);
+    bx(B, .08, .04, .20, STEEL, sx * .78, 1.25, -.45);
+    // Side mirrors
+    bx(B, .06, .05, .22, DARK, sx * .82, 1.48, .54);
+    bx(B, .16, .14, .10, DARK, sx * .88, 1.49, .56);
+  }
+
+  // Open cabin floor
+  bx(B, 1.24, .08, 1.35, DARK, 0, 1.02, -.30);
+
+  // Front seats
+  for (const sx of [-1, 1]) {
+    bx(B, .48, .16, .48, SEAT, sx * .34, 1.16, .12);
+    bx(B, .48, .48, .12, SEAT, sx * .34, 1.43, -.13);
+    bx(B, .42, .06, .44, CREAM, sx * .34, 1.26, .12);
+  }
+
+  // Rear bench
+  bx(B, 1.04, .16, .40, SEAT, 0, 1.15, -.91);
+  bx(B, 1.04, .38, .10, SEAT, 0, 1.40, -1.08);
+
+  // Windshield glass and frame
+  bx(G, 1.28, .54, .045, 0xffffff, 0, 1.68, .56, -.18);
+  bx(B, .07, .65, .07, CREAM, -.67, 1.66, .56, -.18);
+  bx(B, .07, .65, .07, CREAM, .67, 1.66, .56, -.18);
+  bx(B, 1.40, .07, .07, CREAM, 0, 1.99, .56, -.18);
+
+  // Open-top roll cage
+  for (const sx of [-1, 1]) {
+    for (const z of [.50, -.88]) {
+      bx(B, .07, .07, .07, DARK, sx * .67, 1.85, z);
+      bx(B, .07, .72, .07, DARK, sx * .67, 1.48, z);
+    }
+    bx(B, .07, .07, 1.45, DARK, sx * .67, 1.85, -.19);
+  }
+  bx(B, 1.40, .07, .07, DARK, 0, 1.85, .50);
+  bx(B, 1.40, .07, .07, DARK, 0, 1.85, -.88);
+
+  // Rear spare wheel mount
+  cy(B, .045, .045, .44, 6, DARK, 0, 1.45, -1.73, HP);
+
+  // Rear spare tire position is returned to the vehicle builder
+  return { spare: [0, 1.45, -1.92, 0, HP, 0] };
+}
 // little flat-nosed van
 function bodyBus(k) { const { bx, cy, B, G, L, PAINT, P2 } = k;
   bx(B, 1.8, .62, 4.1, PAINT, 0, 1.08, 0); bx(B, 1.8, .5, 4.1, IVORY, 0, 1.62, 0); bx(B, 1.8, .46, 3.36, IVORY, 0, 2.08, -.37); bx(B, 1.84, .09, 1.6, DARK, 0, .76, 0);
@@ -1355,7 +1424,7 @@ const CARS = [
     snd: { idle: 34, max: 118, saw: .5, sq: .25, tri: .2, lump: .25, bright: 500, noise: .06, clatter: 0, vol: 1, horn: [415, 523], hornDur: .45 } },
   { name: 'Drifter', desc: 'Long pickup. Quick on open ground, shy on climbs.', wb: 3.1, track: 1.8, wr: .47, aHi: 5.6, aLo: 8.2, vmax: 28, grip: .92, stats: [3, 5, 2], body: bodyTruck, eye: [.38, 1.6, .45], lamp: [.61, 1.13, 2.35],
     snd: { idle: 27, max: 104, saw: .45, sq: .5, tri: .1, lump: .45, bright: 420, noise: .08, clatter: 0, vol: 1, horn: [311, 392], hornDur: .5 } },
-  { name: 'Pika', desc: 'Tiny open-top. Light and sure-footed, never in a hurry.', wb: 2.1, track: 1.6, wr: .44, aHi: 4.4, aLo: 9.8, vmax: 19, grip: 1.14, stats: [2, 2, 5], body: bodyRover, eye: [.34, 1.62, -.05], lamp: [.48, 1.1, 1.78], open: true,
+  { name: 'Pika', desc: 'Tiny open-top. Light and sure-footed, never in a hurry.', wb: 2.1, track: 1.6, wr: .44, aHi: 4.4, aLo: 9.8, vmax: 19, grip: 1.14, stats: [2, 2, 5], body: bodyOpenTop, eye: [.34, 1.62, -.05], lamp: [.48, 1.1, 1.78], open: true,
     snd: { idle: 44, max: 160, saw: .35, sq: .2, tri: .45, lump: .15, bright: 800, noise: .05, clatter: 0, vol: .9, horn: [698, 740], hornDur: .28 } },
   { name: 'Nomad', desc: 'Little van. Tall and heavy, pulls like an ox.', wb: 2.5, track: 1.84, wr: .52, aHi: 3.9, aLo: 11, vmax: 17, grip: 1, stats: [5, 1, 3], body: bodyBus, eye: [.42, 1.98, 1.25], lamp: [.65, 1.22, 2.12],
     snd: { idle: 24, max: 78, saw: .5, sq: .45, tri: .1, lump: .35, bright: 360, noise: .12, clatter: .5, vol: 1.05, horn: [247, 311], hornDur: .65 } },
