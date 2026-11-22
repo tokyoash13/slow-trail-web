@@ -9,7 +9,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Slow Trail">
 <meta name="theme-color" content="#1a1418">
-<meta name="description" content="Slow Trail: a relaxed off-road exploration game. No timer, no finish line.">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-192.png">
 <style>
@@ -105,8 +104,8 @@
   .stat { display: flex; align-items: center; font-size: 11px; margin-top: 3px; }
   .stat span { width: 48px; opacity: .85; } .stat i { display: inline-block; width: 22px; height: 7px; margin-right: 3px; border-radius: 2px; background: rgba(255,255,255,.2); }
   .stat i.f { background: #f0b050; }
-  #swatches { display: flex; gap: 7px; }
-  #swatches button { width: 27px; height: 27px; border-radius: 50%; border: 2px solid rgba(255,255,255,.45); padding: 0; pointer-events: auto; }
+  #swatches { display: flex; gap: 6px; flex-wrap: wrap; max-width: 280px; }
+  #swatches button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255,255,255,.45); padding: 0; pointer-events: auto; }
   #swatches button.sel { border-color: #fff; box-shadow: 0 0 0 2px #f0b050; }
   .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .chips.c4 { grid-template-columns: repeat(4, 1fr); gap: 4px; } .c4 .mb { padding: 7px 0; font-size: 11px; }
@@ -169,6 +168,8 @@
 </div>
 
 <script src="three.min.js"></script>
+<script src="cars1.js"></script>
+<script src="cars2.js"></script>
 <script>
 (function () {
 'use strict';
@@ -1191,14 +1192,15 @@ const birds = [];
 
 /* ---------- vehicles ---------- */
 const HP = Math.PI / 2;
-const PAINTS = [0x5f6e3c, 0xd89b2e, 0xc8472f, 0x8fb8d8, 0x6f7479, 0x5a3f6a];
+const PAINTS = [0x5f6e3c, 0xd89b2e, 0xc8472f, 0x8fb8d8, 0x6f7479, 0x5a3f6a, 0x17181a, 0xeeeeea, 0xb9bcc0, 0x5f6e3c, 0xeeeeea, 0x17181a, 0xc8472f, 0x8fb8d8, 0xd89b2e, 0xb9bcc0];
+const PAINT2 = [null, null, null, null, null, null, null, null, null, 0xcbb38a, 0x17181a, 0xb9bcc0, 0xeeeeea, 0xeeeeea, 0x17181a, 0x17181a];
 const brakeMat = new THREE.MeshBasicMaterial({ color: 0x7a1f1a }), lampMat = new THREE.MeshBasicMaterial({ color: 0xfff3c4 });
 const glassMat = new THREE.MeshPhongMaterial({ color: 0x3a5466, flatShading: true, shininess: 140, specular: 0xc4c4c0, transparent: true, opacity: .42, depthWrite: false });
 const bodyMat = new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 80, specular: 0x7a7068 });
 const wheelMat = new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 8 });
 const DARK = 0x25272a, STEEL = 0x9aa1a8, RUB = 0x1e1f21, CREAM = 0xefe6d0, SEAT = 0x4a3a34, KHAKI = 0x8a7a4e, WOOD = 0x7a5a3a;
 function makeKit(paint) {
-  const k = { B: [], G: [], L: [], R: [], PAINT: paint, P2: K(paint).multiplyScalar(.84).getHex() }, o1 = { jit: .015 };
+  const k = { B: [], G: [], L: [], R: [], M: [], PAINT: paint, P2: K(paint).multiplyScalar(.84).getHex() }, o1 = { jit: .015 };
   k.bx = (A, w, h, d, c, x, y, z, rx, ry, rz) => A.push(bake(new THREE.BoxGeometry(w, h, d), c, M(x, y, z, rx, ry, rz), o1));
   k.cy = (A, r1, r2, h, sg, c, x, y, z, rx, ry, rz) => A.push(bake(new THREE.CylinderGeometry(r1, r2, h, sg), c, M(x, y, z, rx, ry, rz), o1));
   const { bx, cy, B, L, R } = k;
@@ -1432,8 +1434,187 @@ function bodyATV(k) { const { bx, cy, B, L, PAINT, P2 } = k, rack = (zc, y) => {
   cy(B, .03, .03, .5, 5, DARK, 0, 1.14, .46, -.45); cy(B, .022, .022, .9, 5, DARK, 0, 1.36, .38, 0, 0, HP); bx(B, .22, .14, .2, DARK, 0, 1.24, .44, -.4);
   rack(.74, 1.06); rack(-.86, 1.08);
   return { spare: null }; }
+/* ---------- finer models: lofted shapes with bevelled edges, and soft contact shading baked into the colours ---------- */
+function triPart(T, color) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(T), 3)); return bake(g, color, null, { jit: .012 }); }
+// join a row of cross-sections (each the same number of points, in order round the shape) into one closed solid
+function loft(A, c, secs) { const T = [], n = secs[0].length, cen = s => { const o = [0, 0, 0]; for (const p of s) { o[0] += p[0] / s.length; o[1] += p[1] / s.length; o[2] += p[2] / s.length; } return o; };
+  const tri = (a, b, d, o) => { const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = d[0] - a[0], vy = d[1] - a[1], vz = d[2] - a[2], nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    if (nx * nx + ny * ny + nz * nz < 1e-12) return; if (nx * (a[0] - o[0]) + ny * (a[1] - o[1]) + nz * (a[2] - o[2]) < 0) T.push(a[0], a[1], a[2], d[0], d[1], d[2], b[0], b[1], b[2]); else T.push(a[0], a[1], a[2], b[0], b[1], b[2], d[0], d[1], d[2]); };
+  for (let s = 0; s + 1 < secs.length; s++) { const P = secs[s], Q = secs[s + 1], cp = cen(P), cq = cen(Q), o = [(cp[0] + cq[0]) / 2, (cp[1] + cq[1]) / 2, (cp[2] + cq[2]) / 2];
+    for (let i = 0; i < n; i++) { const j = (i + 1) % n; tri(P[i], P[j], Q[j], o); tri(P[i], Q[j], Q[i], o); } }
+  for (const e of [0, secs.length - 1]) { const P = secs[e], cp = cen(P), o = cen(secs[e ? e - 1 : 1]); for (let i = 0; i < n; i++) tri(cp, P[i], P[(i + 1) % n], o); }
+  A.push(triPart(T, c)); }
+// a rectangle with its corners cut off, standing across the car at z (rk leans its top forwards or back, xc slides it sideways)
+const secZ = (z, yb, yt, wb, wt, ch, rk, xc) => { ch = ch || 0; rk = rk || 0; xc = xc || 0; return [[wb - ch, yb], [wb, yb + ch], [wt, yt - ch], [wt - ch, yt], [-wt + ch, yt], [-wt, yt - ch], [-wb, yb + ch], [-wb + ch, yb]].map(q => [q[0] + xc, q[1], z + rk * (q[1] - yb) / (yt - yb)]); };
+const secX = (x, y0, y1, z0, z1, ch) => [[y0, z0 + ch], [y0, z1 - ch], [y0 + ch, z1], [y1 - ch, z1], [y1, z1 - ch], [y1, z0 + ch], [y1 - ch, z0], [y0 + ch, z0]].map(q => [x, q[0], q[1]]);
+// rounded versions: corner radii rt (top) and rb (bottom) in n steps, crown lifts the middle of the top, bl bows the sides out, ins shrinks the whole outline
+const secR = (z, yb, yt, wb, wt, o) => { o = o || {}; const ins = o.ins || 0, n = o.n || 2, cr = o.crown || 0, bl = o.bl || 0, rk = o.rk || 0, xc = o.xc || 0, P = []; yb += ins; yt -= ins; wb -= ins; wt -= ins;
+  const rt = Math.min(o.rt === undefined ? .06 : o.rt, (yt - yb) * .49, wt * .49), rb = Math.min(o.rb === undefined ? rt : o.rb, (yt - yb) * .49, wb * .49);
+  const arc = (cx, cy, r, a0) => { for (let i = 0; i <= n; i++) { const a = a0 + HP * i / n; P.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); } };
+  arc(wb - rb, yb + rb, rb, -HP); P.push([(wb + wt) / 2 + bl, (yb + yt) / 2]); arc(wt - rt, yt - rt, rt, 0); for (const u of [.5, 0, -.5]) P.push([u * (wt - rt), yt + cr * (1 - u * u)]);
+  arc(-(wt - rt), yt - rt, rt, HP); P.push([-(wb + wt) / 2 - bl, (yb + yt) / 2]); arc(-(wb - rb), yb + rb, rb, Math.PI);
+  return P.map(q => [q[0] + xc, q[1], z + rk * (q[1] - yb) / ((yt - yb) || 1)]); };
+const secRX = (x, y0, y1, z0, z1, r, ins) => { ins = ins || 0; y0 += ins; y1 -= ins; z0 += ins; z1 -= ins; r = Math.min(r, (y1 - y0) * .49, (z1 - z0) * .49); const P = [];
+  for (const [cy_, cz, a0] of [[y0 + r, z0 + r, Math.PI], [y0 + r, z1 - r, -HP], [y1 - r, z1 - r, 0], [y1 - r, z0 + r, HP]]) for (let i = 0; i <= 2; i++) { const a = a0 + HP * i / 2; P.push([x, cy_ + Math.sin(a) * r, cz + Math.cos(a) * r]); }   // angle measured from +z towards +y
+  return P; };
+// round off the two ends of a lofted shape: f(position, inset) gives a section
+const roundEnds = (f, a, b, d, mid) => { const s = Math.sign(b - a), A = [[0, 1], [.3, .286], [.65, .063], [1, 0]].map(e => f(a + s * d * e[0], d * e[1])), B = [[1, 0], [.65, .063], [.3, .286], [0, 1]].map(e => f(b - s * d * e[0], d * e[1])); return A.concat(mid || [], B); };
+// a round bar between two points
+function rod(A, c, p0, p1, r, sg) { const a = new THREE.Vector3(p0[0], p0[1], p0[2]), b = new THREE.Vector3(p1[0], p1[1], p1[2]), d = b.clone().sub(a), l = d.length();
+  const m = new THREE.Matrix4().compose(a.clone().add(b).multiplyScalar(.5), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()), new THREE.Vector3(1, 1, 1)); A.push(bake(new THREE.CylinderGeometry(r, r, l, sg || 8), c, m, { jit: .012 })); }
+// split long edges so that shading has somewhere to change (every edge is split or not by its own length, so neighbours always agree)
+function refine(q, L) { let p = Array.from(q.p), c = Array.from(q.c), m = Array.from(q.m); const L2 = L * L;
+  for (let pass = 0; pass < 4; pass++) { const P = [], C = [], Mk = []; let any = false;
+    for (let t = 0; t < p.length; t += 9) { const v = [[p[t], p[t + 1], p[t + 2]], [p[t + 3], p[t + 4], p[t + 5]], [p[t + 6], p[t + 7], p[t + 8]]], col = [c[t], c[t + 1], c[t + 2]], mk = m[t / 3];
+      const d2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2, mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+      const e = [d2(v[0], v[1]) > L2, d2(v[1], v[2]) > L2, d2(v[2], v[0]) > L2], k = e[0] + e[1] + e[2], out = (a, b, d) => { P.push(a[0], a[1], a[2], b[0], b[1], b[2], d[0], d[1], d[2]); for (let i = 0; i < 3; i++) { C.push(col[0], col[1], col[2]); Mk.push(mk); } };
+      if (!k) { out(v[0], v[1], v[2]); continue; } any = true;
+      if (k === 3) { const a = mid(v[0], v[1]), b = mid(v[1], v[2]), d = mid(v[2], v[0]); out(v[0], a, d); out(a, v[1], b); out(d, b, v[2]); out(a, b, d); }
+      else if (k === 1) { const i = e[0] ? 0 : e[1] ? 1 : 2, A = v[i], B2 = v[(i + 1) % 3], D = v[(i + 2) % 3], h = mid(A, B2); out(A, h, D); out(h, B2, D); }
+      else { const i = !e[0] ? 1 : !e[1] ? 2 : 0, A = v[i], B2 = v[(i + 1) % 3], D = v[(i + 2) % 3], h1 = mid(A, B2), h2 = mid(B2, D); out(A, h1, D); out(h1, h2, D); out(h1, B2, h2); } }       // the unsplit edge is D-A
+    p = P; c = C; m = Mk; if (!any) break; }
+  q.p = new Float32Array(p); q.c = new Float32Array(c); q.m = new Float32Array(m); }
+// darken corners, seams and undersides: mark which small cells of space hold a surface, then see how much of the view from each point is blocked nearby
+function aoBake(parts, extra, k, floor) { const s = .05; let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; const all = parts.concat(extra || []);
+  for (const q of all) for (let i = 0; i < q.p.length; i++) { const a = i % 3; if (q.p[i] < lo[a]) lo[a] = q.p[i]; if (q.p[i] > hi[a]) hi[a] = q.p[i]; }
+  const X0 = lo[0] - .35, Y0 = lo[1] - .35, Z0 = lo[2] - .35, nx = Math.ceil((hi[0] - X0 + .35) / s), ny = Math.ceil((hi[1] - Y0 + .35) / s), nz = Math.ceil((hi[2] - Z0 + .35) / s), G = new Uint8Array(nx * ny * nz);
+  for (const q of all) { const p = q.p; for (let t = 0; t < p.length; t += 9) { const ax = p[t], ay = p[t + 1], az = p[t + 2], ux = p[t + 3] - ax, uy = p[t + 4] - ay, uz = p[t + 5] - az, vx = p[t + 6] - ax, vy = p[t + 7] - ay, vz = p[t + 8] - az;
+      const n = Math.min(60, Math.ceil(Math.sqrt(Math.max(ux * ux + uy * uy + uz * uz, vx * vx + vy * vy + vz * vz)) / (s * .7)));
+      for (let i = 0; i <= n; i++) for (let j = 0; j <= n - i; j++) { const u = i / n, v = j / n, a = (ax + ux * u + vx * v - X0) / s | 0, b = (ay + uy * u + vy * v - Y0) / s | 0, d = (az + uz * u + vz * v - Z0) / s | 0; G[(a * ny + b) * nz + d] = 1; } } }
+  const occ = (x, y, z) => { const a = (x - X0) / s | 0, b = (y - Y0) / s | 0, d = (z - Z0) / s | 0; return a >= 0 && a < nx && b >= 0 && b < ny && d >= 0 && d < nz ? G[(a * ny + b) * nz + d] : 0; };
+  const D = []; for (let e = 0; e < 3; e++) { const el = [.5, .85, 1.3][e], m = [6, 5, 3][e]; for (let i = 0; i < m; i++) { const a = (i + e * .5) / m * 6.283; D.push([Math.cos(a) * Math.cos(el), Math.sin(a) * Math.cos(el), Math.sin(el)]); } }
+  const RD = [.1, .17, .27], RW = [1, .7, .45];
+  for (const q of parts) { const p = q.p, c = q.c; for (let t = 0; t < p.length; t += 9) { const ux = p[t + 3] - p[t], uy = p[t + 4] - p[t + 1], uz = p[t + 5] - p[t + 2], vx = p[t + 6] - p[t], vy = p[t + 7] - p[t + 1], vz = p[t + 8] - p[t + 2];
+      let nx_ = uy * vz - uz * vy, ny_ = uz * vx - ux * vz, nz_ = ux * vy - uy * vx; const nl = Math.hypot(nx_, ny_, nz_); if (nl < 1e-9) continue; nx_ /= nl; ny_ /= nl; nz_ /= nl;
+      let tx, ty, tz; if (Math.abs(ny_) < .9) { tx = nz_; ty = 0; tz = -nx_; } else { tx = 0; ty = -nz_; tz = ny_; } const tl = Math.hypot(tx, ty, tz); tx /= tl; ty /= tl; tz /= tl; const bx_ = ny_ * tz - nz_ * ty, by_ = nz_ * tx - nx_ * tz, bz_ = nx_ * ty - ny_ * tx;
+      for (let v = 0; v < 3; v++) { const i = t + v * 3, px = p[i] + nx_ * .04, py = p[i + 1] + ny_ * .04, pz = p[i + 2] + nz_ * .04; let o = 0, w = 0;
+        for (const d of D) { const dx = tx * d[0] + bx_ * d[1] + nx_ * d[2], dy = ty * d[0] + by_ * d[1] + ny_ * d[2], dz = tz * d[0] + bz_ * d[1] + nz_ * d[2];
+          for (let r = 0; r < 3; r++) { const wt = RW[r] * d[2]; w += wt; if (occ(px + dx * RD[r], py + dy * RD[r], pz + dz * RD[r])) o += wt; } }
+        let f = 1 - k * Math.pow(o / w, .75); if (floor !== undefined) { if (ny_ < -.4) f *= .8; f *= .86 + .14 * Math.min(1, Math.max(0, (p[i + 1] - floor) / .7)); }
+        c[i] *= f; c[i + 1] *= f; c[i + 2] *= f; } } } }
+function fineShade(k, def) { for (const q of k.B.concat(k.M)) refine(q, .32); const W = [], hx = def.track / 2, zf = def.wb / 2;
+  for (const sx of [1, -1]) for (const z of [zf, -zf]) W.push(bake(new THREE.CylinderGeometry(def.wr, def.wr, .32, 12), 0, M(sx * hx, def.wr, z, 0, 0, HP), { jit: 0 }));
+  aoBake(k.B.concat(k.M), k.G.concat(k.L, k.R, W), .9, .45); }
+// a rounder wheel: a tyre with soft shoulders, a dished steel rim; the tread shows as alternating shades, not blocks
+function fineWheel(R) { const P = [], o = { jit: .02 }, V = (r, y) => new THREE.Vector2(r, y), SG = 24, RIM = 0x777b80;
+  const ty = bake(new THREE.LatheGeometry([V(R * .6, -.17), V(R * .72, -.196), V(R * .86, -.2), V(R * .95, -.178), V(R * .99, -.138), V(R, -.08), V(R, .08), V(R * .99, .138), V(R * .95, .178), V(R * .86, .2), V(R * .72, .196), V(R * .6, .17)], SG), 0x2b2c2f, M(0, 0, 0, 0, 0, HP), o);
+  for (let t = 0; t < ty.p.length; t += 9) { const y = (ty.p[t + 1] + ty.p[t + 4] + ty.p[t + 7]) / 3, z = (ty.p[t + 2] + ty.p[t + 5] + ty.p[t + 8]) / 3, x = (ty.p[t] + ty.p[t + 3] + ty.p[t + 6]) / 3;
+    if (Math.hypot(y, z) > R * .9 && ((Math.floor((Math.atan2(y, z) + Math.PI) / 6.2832 * SG + .001) + (x > 0 ? 1 : 0)) & 1)) for (let i = 0; i < 9; i++) ty.c[t + i] *= .74; }
+  P.push(ty);
+  P.push(bake(new THREE.LatheGeometry([V(.002, -.07), V(R * .2, -.07), V(R * .26, -.05), V(R * .5, -.045), V(R * .56, -.11), V(R * .61, -.172)], SG), RIM, M(0, 0, 0, 0, 0, HP), o));
+  P.push(bake(new THREE.LatheGeometry([V(R * .61, .172), V(R * .56, .11), V(R * .5, .045), V(R * .26, .05), V(R * .2, .07), V(.002, .07)], SG), RIM, M(0, 0, 0, 0, 0, HP), o));
+  for (const sx of [1, -1]) { P.push(bake(new THREE.CylinderGeometry(R * .09, R * .12, .03, 10), 0x3a3c40, M(sx * .08, 0, 0, 0, 0, sx * -HP), o));
+    for (let i = 0; i < 5; i++) { const a = i / 5 * 6.283 + .3; P.push(bake(new THREE.CylinderGeometry(R * .075, R * .075, .02, 8), 0x1b1c1e, M(sx * .052, Math.cos(a) * R * .38, Math.sin(a) * R * .38, 0, 0, HP), o)); } }
+  aoBake(P, [], .7); return P; }
+
+// the Mule: short, tall two-door 4x4 with a soft top
+function bodyMule(k) { const { bx, cy, B, G, L, R, PAINT, P2 } = k, Mt = k.M, GREY = 0x575a5f, BLK = 0x1c1d1f, TOPC = 0xcbb38a, TOP2 = 0xb49d76, W = 0xffffff;
+  const SILL = .6, BELT = 1.42, YT = 2.1, ZC = .42, ZT = .16, ZB = -1.95, ZBT = -1.82, DB = -.62, DF = .34;      // sill, waistline, roof; windscreen foot and head; back at the waist and at the roof; door back and front
+  const pl = (A, c, F, q, o0, o1) => loft(A, c, [q.map(e => F(e[0], e[1], o0)), q.map(e => F(e[0], e[1], o1))]);
+  // lower body: one rounded shell, raised over the rear wheels
+  { const f = (z, ins) => secR(z, z < -.71 ? 1.03 : SILL, BELT + .015, .775, .8, { rt: .055, rb: .05, n: 2, bl: .014, ins }); loft(B, PAINT, roundEnds(f, ZB, ZC, .07, [f(-.86, 0), f(-.8, 0), f(-.62, 0), f(-.56, 0)])); }
+  bx(B, 1.3, .44, .1, PAINT, 0, .82, ZB + .05); bx(Mt, 1.46, .02, 2.3, BLK, 0, BELT + .03, (ZB + ZC) / 2);
+  // bonnet: long, crowned, dropping and narrowing towards the nose
+  const hy = t => lerp(BELT, 1.33, t) - (t > .9 ? (t - .9) * .25 : 0), hz = t => lerp(ZC - .02, 1.76, t);
+  loft(B, PAINT, [0, .25, .5, .75, .93, 1].map(t => secR(hz(t), .96, hy(t), lerp(.7, .625, t), lerp(.685, .605, t), { rt: .1, rb: .03, n: 3, crown: .03, bl: .008 }))); bx(Mt, 1.1, .4, 1.3, BLK, 0, .78, 1.08);
+  bx(Mt, 1.1, .014, .09, BLK, 0, BELT + .032, ZC + .07);
+  for (const sx of [1, -1]) { loft(B, P2, [[.14, .44], [.93, .36]].map(e => { const y = hy(e[0]) + .03 * (1 - (e[1] / .6) ** 2) - .002; return [[sx * (e[1] - .01), y, hz(e[0])], [sx * (e[1] + .01), y, hz(e[0])], [sx * (e[1] + .01), y + .014, hz(e[0])], [sx * (e[1] - .01), y + .014, hz(e[0])]]; }));
+    bx(Mt, .03, .08, .11, BLK, sx * .668, 1.3, 1.25); bx(Mt, .05, .03, .05, BLK, sx * .65, 1.355, 1.25); }
+  // grille: tall, the full width of the nose, seven slots between two big round lamps
+  bx(Mt, 1.26, .53, .04, BLK, 0, 1.07, 1.77);
+  for (const sx of [1, -1]) { loft(B, PAINT, [1.78, 1.835].map(z => [[.315, .8], [.62, .8], [.645, .83], [.645, 1.24], [.63, 1.3], [.585, 1.335], [.52, 1.348], [.315, 1.348]].map(q => [sx * q[0], q[1], z])));
+    cy(B, .132, .143, .02, 14, P2, sx * .48, 1.15, 1.84, HP); cy(L, .095, .125, .04, 14, W, sx * .48, 1.15, 1.864, HP); cy(B, .05, .05, .03, 8, AMBER, sx * .49, .92, 1.845, HP); }
+  bx(B, .64, .058, .055, PAINT, 0, 1.319, 1.807); bx(B, .64, .14, .055, PAINT, 0, .87, 1.807); for (let i = 0; i < 6; i++) bx(B, .036, .36, .05, PAINT, -.235 + i * .094, 1.115, 1.805);
+  // mud guards: chunky angular arches close over the tyres, running down to the sill at each end
+  const flare = (sx, pts, xi, xo, t) => { const n = pts.length, N = [], S = []; for (let i = 0; i + 1 < n; i++) { const dz = pts[i + 1][0] - pts[i][0], dy = pts[i + 1][1] - pts[i][1], l = Math.hypot(dz, dy); N.push([-dy / l, dz / l]); }
+    for (let i = 0; i < n; i++) { const a = N[Math.max(0, i - 1)], b = N[Math.min(n - 2, i)]; let mz = a[0] + b[0], my = a[1] + b[1]; const ml = Math.hypot(mz, my); mz /= ml; my /= ml; const d = t / (mz * a[0] + my * a[1]), z = pts[i][0], y = pts[i][1], Z = z + mz * d, Y = y + my * d;
+      S.push([[sx * xi, y, z], [sx * (xo - .02), y, z], [sx * xo, lerp(y, Y, .2), lerp(z, Z, .2)], [sx * (xo - .01), lerp(y, Y, .8), lerp(z, Z, .8)], [sx * (xo - .06), Y, Z], [sx * xi, Y, Z]]); } loft(Mt, GREY, S); };
+  const FU = 1.0, FT = .13;
+  for (const sx of [1, -1]) { flare(sx, [[.68, .6], [.9, FU], [1.74, FU]], .79, 1.13, FT); loft(Mt, GREY, roundEnds((x, ins) => secRX(x, .84, FU + FT, 1.68, 1.875, .045, ins), sx * .66, sx * 1.13, .04));
+    flare(sx, [[-1.92, .6], [-1.7, FU], [-.9, FU], [-.68, .6]], .78, 1.13, FT);
+    loft(Mt, GREY, [secX(sx * .6, FU, FU + FT, ZC, 1.8, .02), secX(sx * .8, FU, FU + FT, ZC, 1.8, .02)]); bx(Mt, .03, .4, 1.3, BLK, sx * .6, .8, 1.08);
+    bx(B, .27, .11, .03, AMBER, sx * .88, 1.0, 1.878); bx(Mt, .31, .15, .02, BLK, sx * .88, 1.0, 1.87); bx(B, .02, .05, .1, AMBER, sx * 1.13, 1.08, 1.6); bx(R, .02, .05, .1, W, sx * 1.13, 1.08, -1.56); }
+  // bumpers
+  { const f = (x, ins) => Math.abs(x) < .57 ? secRX(x, .56, .8, 1.88, 2.14, .06, ins) : secRX(x, .6, .78, 1.86, 2.07 - (Math.abs(x) - .6) * .12, .06, ins); loft(Mt, GREY, roundEnds(f, -1.05, 1.05, .05, [f(-.63, 0), f(-.56, 0), f(.56, 0), f(.63, 0)])); }
+  for (const sx of [1, -1]) { bx(Mt, .12, .1, .2, 0x45484d, sx * .34, .82, 2.01); bx(Mt, .1, .1, .2, BLK, sx * .45, .7, 1.8); bx(Mt, .1, .1, .16, BLK, sx * .45, .7, ZB + .02); }
+  loft(Mt, GREY, roundEnds((x, ins) => secRX(x, .58, .8, ZB - .22, ZB - .02, .06, ins), -1.0, 1.0, .05));
+  // sills, door seams, handles, hinges, mirrors, filler cap, back end
+  for (const sx of [1, -1]) { loft(Mt, BLK, roundEnds((z, ins) => secR(z, .52, .6, .1, .1, { rt: .03, n: 2, xc: sx * .84, ins }), -.66, .66, .03));
+    bx(Mt, .012, .68, .016, BLK, sx * .799, 1.05, DB); bx(Mt, .012, .68, .016, BLK, sx * .799, 1.05, DF); bx(Mt, .012, .016, DF - DB, BLK, sx * .792, .71, (DF + DB) / 2);
+    bx(Mt, .03, .04, .14, BLK, sx * .813, 1.29, DB + .14); for (const y of [.92, 1.3]) bx(Mt, .03, .07, .06, BLK, sx * .811, y, DF);
+    bx(Mt, .16, .035, .04, BLK, sx * .87, 1.54, DF - .08); loft(Mt, BLK, roundEnds((z, ins) => secR(z, 1.49, 1.72, .085, .085, { rt: .035, n: 2, xc: sx * .99, ins }), DF - .115, DF - .03, .03)); bx(G, .13, .19, .01, W, sx * .99, 1.605, DF - .118);
+    bx(R, .15, .24, .04, W, sx * .68, 1.24, ZB - .015); bx(Mt, .19, .28, .02, BLK, sx * .68, 1.24, ZB - .005); bx(B, .1, .05, .03, AMBER, sx * .68, 1.06, ZB - .01); }
+  cy(Mt, .06, .06, .02, 8, BLK, -.805, 1.28, -1.5, 0, 0, HP); bx(Mt, 1.1, .012, .016, BLK, 0, 1.1, ZB - .003); bx(Mt, .3, .3, .1, BLK, 0, 1.32, ZB - .04); bx(Mt, .16, .03, .03, BLK, .4, 1.3, ZB - .01); cy(Mt, .01, .01, .8, 4, BLK, -.72, BELT + .4, ZC + .08);
+  // windscreen: frame, glass, wipers
+  const xs = v => lerp(.78, .7, v), FW = (x, v, o) => [x, lerp(BELT + .01, YT, v), lerp(ZC, ZT, v) + o];
+  for (const sx of [1, -1]) pl(B, PAINT, FW, [[sx * (xs(0) - .075), 0], [sx * xs(0), 0], [sx * xs(1), 1], [sx * (xs(1) - .075), 1]], -.03, .03);
+  pl(B, PAINT, FW, [[-xs(.92) + .07, .92], [xs(.92) - .07, .92], [xs(1) - .07, 1], [-xs(1) + .07, 1]], -.03, .03); pl(B, PAINT, FW, [[-xs(0) + .07, 0], [xs(0) - .07, 0], [xs(.08) - .07, .08], [-xs(.08) + .07, .08]], -.03, .03);
+  pl(G, W, FW, [[-xs(.08) + .075, .08], [xs(.08) - .075, .08], [xs(.92) - .075, .92], [-xs(.92) + .075, .92]], -.008, .008);
+  for (const sx of [1, -1]) { pl(Mt, BLK, FW, [[sx * .08, .1], [sx * .52, .1], [sx * .52, .125], [sx * .08, .125]], .01, .035); pl(Mt, BLK, FW, [[sx * .3, .03], [sx * .33, .03], [sx * .33, .1], [sx * .3, .1]], .012, .04); }
+  // sides of the cabin: door frames in body colour, the canvas top behind
+  const zf = v => lerp(ZC, ZT, v) - .035, zr = v => lerp(ZB, ZBT, v);
+  for (const sx of [1, -1]) { const FS = (z, v, o) => [sx * (lerp(.8, .7, v) + o), lerp(BELT, YT, v), z];
+    pl(B, PAINT, FS, [[zf(0) - .06, 0], [zf(0), 0], [zf(1), 1], [zf(1) - .06, 1]], -.02, .02); pl(B, PAINT, FS, [[DB, .9], [zf(.9) - .06, .9], [zf(1) - .06, 1], [DB, 1]], -.02, .02); pl(B, PAINT, FS, [[DB, 0], [DB + .06, 0], [DB + .06, .9], [DB, .9]], -.02, .02);
+    pl(G, W, FS, [[DB + .06, 0], [zf(0) - .06, 0], [zf(.9) - .06, .9], [DB + .06, .9]], -.006, .006);
+    pl(Mt, TOPC, FS, [[DB - .1, 0], [DB, 0], [DB, 1], [DB - .1, 1]], -.02, .028); pl(Mt, TOPC, FS, [[zr(0), 0], [zr(0) + .17, 0], [zr(1) + .17, 1], [zr(1), 1]], -.02, .028);
+    pl(Mt, TOPC, FS, [[zr(.84) + .17, .84], [DB - .1, .84], [DB - .1, 1], [zr(1) + .17, 1]], -.02, .028); pl(Mt, TOPC, FS, [[zr(0) + .17, 0], [DB - .1, 0], [DB - .1, .15], [zr(.15) + .17, .15]], -.02, .028);
+    pl(G, W, FS, [[zr(.15) + .17, .15], [DB - .1, .15], [DB - .1, .84], [zr(.84) + .17, .84]], -.006, .006); }
+  // back of the top, with its window
+  const FR = (u, v, o) => [u * lerp(.8, .7, v), lerp(BELT, YT, v), zr(v) - o];
+  for (const sx of [1, -1]) pl(Mt, TOPC, FR, [[sx * .7, 0], [sx * 1, 0], [sx * 1, 1], [sx * .7, 1]], -.02, .028);
+  pl(Mt, TOPC, FR, [[-.7, .84], [.7, .84], [.7, 1], [-.7, 1]], -.02, .028); pl(Mt, TOPC, FR, [[-.7, 0], [.7, 0], [.7, .2], [-.7, .2]], -.02, .028); pl(G, W, FR, [[-.7, .2], [.7, .2], [.7, .84], [-.7, .84]], -.006, .006);
+  // roof: a rounded, slightly crowned shell with two bows showing through the canvas
+  { const f = (z, ins) => secR(z, YT - .07, YT + .045, .735, .715, { rt: .075, rb: .02, n: 2, crown: .03 - Math.abs(z + .8) * .012, ins }); loft(Mt, TOPC, roundEnds(f, ZBT - .02, ZT + .02, .045, [f(-.8, 0)])); }
+  for (const z of [-.6, -1.25]) bx(Mt, 1.3, .012, .05, TOP2, 0, YT + .07, z);
+  // rounded corner posts: windscreen pillars in body colour, the back corners of the top in canvas
+  for (const sx of [1, -1]) { rod(B, PAINT, [sx * .765, BELT + .01, ZC - .005], [sx * .685, YT, ZT - .005], .045, 8); rod(Mt, TOPC, [sx * .785, BELT + .01, ZB + .015], [sx * .69, YT, ZBT + .01], .05, 8); rod(Mt, TOPC, [sx * .69, YT - .01, ZBT + .03], [sx * .69, YT - .01, ZT + .05], .04, 8); }
+  rod(B, PAINT, [-.69, YT - .01, ZT], [.69, YT - .01, ZT], .04, 8); rod(Mt, TOPC, [-.69, YT - .01, ZBT + .01], [.69, YT - .01, ZBT + .01], .045, 8);
+  // inside
+  bx(Mt, 1.46, .08, .16, BLK, 0, BELT + .05, ZC - .2);
+  for (const sx of [1, -1]) { loft(B, SEAT, roundEnds((z, ins) => secR(z, BELT + .03, BELT + .17, .23, .23, { rt: .04, n: 2, xc: sx * .36, ins }), -.8, -.32, .04)); loft(B, SEAT, roundEnds((z, ins) => secR(z, BELT + .1, BELT + .62, .23, .2, { rt: .06, n: 2, xc: sx * .36, rk: -.08, ins }), -.86, -.74, .03)); }
+  cy(Mt, .16, .16, .03, 12, BLK, .36, 1.52, -.04, 1.15); rod(Mt, BLK, [.36, 1.52, -.04], [.36, 1.44, .2], .025, 6);
+  return { spare: [0, 1.32, ZB - .24, 0, HP, 0] }; }
+const VMD = window.VMD;
+/* ---------- imported vehicle models: geometry with normals, texture coordinates and baked shade; paint laid over at run time ---------- */
+const vmc = {};
+function vmBytes(s) { const b = atob(s), a = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+function vmGeo(d) { const P = new Int16Array(vmBytes(d.p).buffer), N = new Int8Array(vmBytes(d.n).buffer), C = vmBytes(d.c), ub = vmBytes(d.u).buffer, U = d.rep ? new Int16Array(ub) : new Uint16Array(ub), I = d.big ? new Uint32Array(vmBytes(d.i).buffer) : new Uint16Array(vmBytes(d.i).buffer), nv = d.nv;
+  const p = new Float32Array(nv * 3), n = new Float32Array(nv * 3), c = new Float32Array(nv * 3), u = new Float32Array(nv * 2), us = d.rep ? 1 / 4096 : 1 / 65535;
+  for (let i = 0; i < nv * 3; i++) { p[i] = P[i] * 1e-4; n[i] = N[i] / 127; c[i] = C[i] / 255; } for (let i = 0; i < nv * 2; i++) u[i] = U[i] * us;
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3)); g.setAttribute('normal', new THREE.BufferAttribute(n, 3)); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.setAttribute('uv', new THREE.BufferAttribute(u, 2)); g.setIndex(new THREE.BufferAttribute(I, 1)); return g; }
+// lay a paint colour over a shade image (170 in the shade means "exactly the paint colour"); a mask, when there is one, limits it to the painted areas
+function vmRepaint(t, cv, hex) { if (!t.base) return; const s = t.size, x = cv.image.getContext('2d'), out = x.createImageData(s, s), o = out.data, b = t.base, m = t.mask, pr = (hex >> 16 & 255) / 170, pg = (hex >> 8 & 255) / 170, pb = (hex & 255) / 170;
+  for (let i = 0; i < o.length; i += 4) { const k = m ? m[i] / 255 : 1, v = b[i]; o[i] = b[i] + (Math.min(255, v * pr) - b[i]) * k; o[i + 1] = b[i + 1] + (Math.min(255, v * pg) - b[i + 1]) * k; o[i + 2] = b[i + 2] + (Math.min(255, v * pb) - b[i + 2]) * k; o[i + 3] = 255; }
+  x.putImageData(out, 0, 0); cv.needsUpdate = true; }
+function vmGet(name) { if (vmc[name]) return vmc[name]; const D = VMD[name], M = vmc[name] = { m: D.m, tex: {}, a: D.m.paint0, b: D.m.paint0, body: [], wheel: [] };
+  const phong = o => new THREE.MeshPhongMaterial(Object.assign({ vertexColors: true, side: THREE.DoubleSide }, o));
+  M.paintA = phong({ shininess: 70, specular: 0x5a5650 }); M.paintB = phong({ shininess: 70, specular: 0x5a5650 }); M.trim = phong({ shininess: 22, specular: 0x333333 }); M.lit = new THREE.MeshBasicMaterial({ color: 0xfff3c4, side: THREE.DoubleSide });
+  const texOf = (key, kind) => { let t = M.tex[key]; if (!t) { t = M.tex[key] = { kinds: {} }; const im = new Image(); im.onload = () => { t.img = im; t.size = im.width; const grab = i => { const c = document.createElement('canvas'); c.width = c.height = t.size; const x = c.getContext('2d'); x.drawImage(i, 0, 0, t.size, t.size); return x.getImageData(0, 0, t.size, t.size).data; };
+          if (t.plain) { t.plain.image = im; t.plain.needsUpdate = true; } if (t.cvA) { t.base = grab(im); const fin = () => { for (const cv of [t.cvA, t.cvB]) if (cv) { cv.image.width = cv.image.height = t.size; } vmRepaint(t, t.cvA, M.a); if (t.cvB) vmRepaint(t, t.cvB, M.b); };
+            if (D.mask && D.mask[key]) { const mi = new Image(); mi.onload = () => { t.mask = grab(mi); fin(); }; mi.src = D.mask[key]; } else fin(); } }; t.go = () => { if (!t.started) { t.started = 1; im.src = D.tex[key]; } }; }
+    const mk = (cvs) => { const x = cvs ? new THREE.CanvasTexture(document.createElement('canvas')) : new THREE.Texture(); x.flipY = false; x.anisotropy = 4; return x; };
+    if (kind === 'paint' && !t.cvA) t.cvA = mk(1); if (kind === 'paint2' && !t.cvB) { t.cvB = mk(1); if (!t.cvA) t.cvA = mk(1); } if ((kind === 'trim' || kind === 'lit') && !t.plain) t.plain = mk(0);
+    return t; };
+  const build = (list, into) => { for (const e of list) { const g = vmGeo(e.g); let mat;
+      if (e.t) { const t = texOf(e.t, e.k), map = e.k === 'paint' ? t.cvA : e.k === 'paint2' ? t.cvB : t.plain; if (e.g.rep) map.wrapS = map.wrapT = THREE.RepeatWrapping;
+        mat = t.kinds[e.k] || (t.kinds[e.k] = e.k === 'lit' ? new THREE.MeshBasicMaterial({ map, side: THREE.DoubleSide }) : phong(e.k === 'trim' ? { map, shininess: 22, specular: 0x333333 } : { map, shininess: 70, specular: 0x5a5650 })); }
+      else mat = e.k === 'paint' ? M.paintA : e.k === 'paint2' ? M.paintB : e.k === 'glass' ? glassMat : e.k === 'lit' ? M.lit : e.k === 'rear' ? brakeMat : M.trim;
+      into.push({ g, mat, k: e.k }); } };
+  build(D.parts, M.body); build(D.wheel, M.wheel); for (const k in M.tex) M.tex[k].go(); return M; }
+function vmPaint(M, a, b) { M.a = a; M.b = b; M.paintA.color.setHex(a); M.paintB.color.setHex(b); for (const k in M.tex) { const t = M.tex[k]; if (t.cvA) vmRepaint(t, t.cvA, a); if (t.cvB) vmRepaint(t, t.cvB, b); } }
+// a plain cabin to see through the windows: floor, dashboard, two seats, a steering wheel and (optionally) a rear bench
+function vmInside(k, o) { const { bx, cy } = k, Mt = k.M, IN = 0x24262a, ST = 0x3a3330, f = o.floor, sx0 = .38 * o.w / 1.5;
+  const top = o.top || f + .44; bx(Mt, o.w, .04, o.dash - o.back + .2, IN, 0, f, (o.dash + o.back) / 2); bx(Mt, o.w, .2, .3, IN, 0, top - .1, o.dash); bx(Mt, o.w, top - f, .04, IN, 0, (top + f) / 2, o.dash + .17);
+  for (const sx of [1, -1]) { loft(Mt, ST, roundEnds((z, ins) => secR(z, f + .12, f + .28, .23, .23, { rt: .04, n: 2, xc: sx * sx0, ins }), o.seat - .24, o.seat + .24, .04)); loft(Mt, ST, roundEnds((z, ins) => secR(z, f + .24, f + .86, .23, .2, { rt: .06, n: 2, xc: sx * sx0, rk: -.1, ins }), o.seat - .32, o.seat - .2, .03)); bx(Mt, .24, .18, .08, ST, sx * sx0, f + .96, o.seat - .34); }
+  if (o.bench) { bx(Mt, o.w, .5, .06, IN, 0, f + .24, o.back); bx(Mt, o.w * .8, .5, .1, ST, 0, f + .38, o.back + .5); bx(Mt, o.w * .8, .14, .42, ST, 0, f + .19, o.back + .7); }
+  cy(Mt, .17, .17, .03, 12, IN, sx0, top + .04, o.dash - .34, 1.15); rod(Mt, IN, [sx0, top + .04, o.dash - .34], [sx0, top - .04, o.dash - .12], .025, 6); }
+const vmBody = name => k => { const M = vmGet(name), m = M.m, b2 = typeof PAINT2 !== 'undefined' && typeof sel !== 'undefined' && PAINT2[sel.paint] != null ? PAINT2[sel.paint] : k.PAINT; vmPaint(M, k.PAINT, m.dual ? b2 : k.PAINT);
+  if (m.inside) vmInside(k, m.inside); if (m.extraLit) for (const l of m.extraLit) if (l[3] > 0) for (const sx of [1, -1]) k.cy(k.L, l[3] * .85, l[3], .025, 14, 0xffffff, sx * l[0], l[1], l[2], HP);
+  return { spare: null, meshes: M.body.map(e => { const x = new THREE.Mesh(e.g, e.mat); x.castShadow = e.k !== 'glass'; return x; }) }; };
+const vmWheel = name => lx => { const M = vmGet(name), g = new THREE.Group(); for (const e of M.wheel) { const x = new THREE.Mesh(e.g, e.mat); x.castShadow = true; g.add(x); } if (lx < 0) g.scale.x = -1; return g; };
+function vmApply(def, name, desc) { const m = VMD[name].m; def.wb = m.wb; def.track = m.track; def.wr = m.wr; def.eye = m.eye; def.lamp = m.lamp; def.body = vmBody(name); def.wheelMesh = vmWheel(name); def.model = true; def.fine = false; def.wbP = m.wb < 2.1 && !m.open ? 2.1 : 0; if (m.codeWheel) { def.wheelMesh = null; def.fine = true; def.wr = Math.max(m.wr - .03, .24); def.wsx = .5; } def.open = !!m.open; def.vm = name; if (desc) def.desc = desc; }
 const CARS = [
-  { name: 'Mule', desc: 'Short 4x4 with a canvas top. Does everything well.', wb: 2.6, track: 1.8, wr: .48, aHi: 4.8, aLo: 9, vmax: 23, grip: 1, stats: [3, 3, 3], body: bodyJeep, eye: [.38, 1.62, .05], lamp: [.61, 1.13, 2.06],
+  { name: 'Mule', desc: 'Short 4x4 with a canvas top. Does everything well.', wb: 2.6, track: 1.8, wr: .48, aHi: 4.8, aLo: 9, vmax: 23, grip: 1, stats: [3, 3, 3], body: bodyMule, fine: true, eye: [.36, 1.8, -.52], lamp: [.455, 1.14, 1.88],
     snd: { idle: 34, max: 118, saw: .5, sq: .25, tri: .2, lump: .25, bright: 500, noise: .06, clatter: 0, vol: 1, horn: [415, 523], hornDur: .45 } },
   { name: 'Drifter', desc: 'Long pickup. Quick on open ground, shy on climbs.', wb: 3.1, track: 1.8, wr: .47, aHi: 5.6, aLo: 8.2, vmax: 28, grip: .92, stats: [3, 5, 2], body: bodyTruck, eye: [.38, 1.6, .45], lamp: [.61, 1.13, 2.35],
     snd: { idle: 27, max: 104, saw: .45, sq: .5, tri: .1, lump: .45, bright: 420, noise: .08, clatter: 0, vol: 1, horn: [311, 392], hornDur: .5 } },
@@ -1444,6 +1625,13 @@ const CARS = [
   { name: 'Dart', desc: 'Quad bike. Fast, light and nimble: made for speed and adventure.', wb: 1.35, track: 1.2, wr: .3, aHi: 7.6, aLo: 9.6, vmax: 32, grip: 1.1, stats: [3, 5, 4], body: bodyATV, eye: [0, 1.76, 0], eyeO: [0, 0, .14], lamp: [.15, .88, .96], open: true,
     rail: .24, over: .5, cam: .74, sk: .62,
     snd: { idle: 52, max: 205, saw: .3, sq: .34, tri: .3, lump: .5, bright: 900, noise: .07, clatter: 0, vol: .85, horn: [830, 932], hornDur: .24 } }];
+vmApply(CARS[0], 'mule', 'Short 4x4 with a hard top. Does everything well.'); vmApply(CARS[1], 'cyber', 'Long steel pickup. Quick on open ground, shy on climbs.'); vmApply(CARS[2], 'pick', 'Small pickup with a roll bar. Light and sure-footed, never in a hurry.');
+vmApply(CARS[3], 'van', 'Old van. Tall and heavy, pulls like an ox.'); vmApply(CARS[4], 'quad', 'Quad bike. Fast, light and nimble: made for speed and adventure.'); CARS[4].eyeO = [0, 0, .1];
+// nine more vehicles, each driving like the existing one it is closest to
+{ const add = (tpl, key, name, desc, stats) => { const d = Object.assign({}, CARS[tpl], { name, desc, stats }); vmApply(d, key, desc); CARS.push(d); };
+  add(0, 'blazer', 'Bison', 'Army 4x4 wagon. Tough, square and happy off the road.', [4, 3, 3]); add(1, 'mustang', 'Breeze', 'Open-top muscle car. Loud, long and best on the highway.', [4, 5, 2]); add(1, 'buick', 'Baron', 'Big coupe. Smooth and quick on open ground.', [4, 4, 2]);
+  add(2, 'lada', 'Kopek', 'Plain little saloon. Simple, light and stubborn.', [2, 3, 3]); add(1, 'merc', 'Regent', 'Solid saloon. Calm, quick and comfortable.', [3, 4, 2]); add(2, 'f126', 'Peanut', 'Tiny city car. Goes anywhere, slowly.', [1, 2, 3]);
+  add(3, 'kombi', 'Wanderer', 'Camper bus. Slow, tall and in no hurry at all.', [2, 2, 3]); add(2, 'beetle', 'Pebble', 'Round little classic. Light and sure-footed.', [2, 3, 3]); }
 let CAR = CARS[0], car = null, wheels = [], WL = [], WR = .48, WHEELBASE = 2.6, TRACK = 1.8;
 const glowTex = (function () { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
   g.addColorStop(0, 'rgba(255,246,220,1)'); g.addColorStop(.25, 'rgba(255,220,150,.55)'); g.addColorStop(1, 'rgba(255,200,120,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
@@ -1451,22 +1639,22 @@ const glowMat = new THREE.SpriteMaterial({ map: glowTex, blending: THREE.Additiv
 const headlight = new THREE.SpotLight(0xfff0c0, 0, 85, .52, .5, 1.2);
 function buildCar(def, paint) {
   if (car) { scene.remove(car); car.traverse(o => { if (o.geometry && o.userData.own) o.geometry.dispose(); }); }
-  CAR = def; WR = def.wr; WHEELBASE = def.wb; TRACK = def.track; const zf = def.wb / 2, hx = def.track / 2;
+  CAR = def; WR = def.wr; WHEELBASE = def.wbP || def.wb; TRACK = def.track; const zf = def.wb / 2, hx = def.track / 2;
   WL = [[hx, zf], [-hx, zf], [hx, -zf], [-hx, -zf]];
   const g = new THREE.Group(); g.rotation.order = 'YXZ'; const k = makeKit(paint), { bx, cy, B } = k, o0 = { jit: 0 }, o1 = { jit: .015 };
-  for (const sx of [1, -1]) bx(B, .16, .14, def.wb + (def.over || 1.1), DARK, sx * (def.rail || .45), WR + .15, 0);
-  for (const z of [zf, -zf]) { cy(B, .07, .07, def.track - .1, 6, DARK, 0, WR, z, 0, 0, HP); B.push(bake(new THREE.IcosahedronGeometry(.19, 0), DARK, M(z > 0 ? .2 : 0, WR, z), o0));
+  if (!def.model) for (const sx of [1, -1]) bx(B, .16, .14, def.wb + (def.over || 1.1), DARK, sx * (def.rail || .45), WR + .15, 0);
+  if (!def.model) for (const z of [zf, -zf]) { cy(B, .07, .07, def.track - .1, 6, DARK, 0, WR, z, 0, 0, HP); B.push(bake(new THREE.IcosahedronGeometry(.19, 0), DARK, M(z > 0 ? .2 : 0, WR, z), o0));
     for (const sx of [1, -1]) { cy(B, .03, .03, .5, 5, 0xc8a23a, sx * (hx - .3), WR + .22, z); cy(B, .05, .05, .32, 6, 0x55595e, sx * (hx - .3), WR + .2, z); } }       // dampers and springs
-  cy(B, .05, .05, def.wb - .2, 5, 0x55595e, .1, WR + .02, 0, HP);
-  const info = def.body(k);
+  if (!def.model) cy(B, .05, .05, def.wb - .2, 5, 0x55595e, .1, WR + .02, 0, HP);
+  const info = def.body(k); if (def.fine) fineShade(k, def);
   const add = (parts, mat, cast) => { if (!parts.length) return; const m = new THREE.Mesh(merge(parts), mat); m.userData.own = true; m.castShadow = !!cast; g.add(m); };
-  add(k.B, bodyMat, true); add(k.G, glassMat); add(k.L, lampMat); add(k.R, brakeMat);
-  const Wp = [bake(new THREE.CylinderGeometry(WR - .03, WR - .03, .32, 16), RUB, M(0, 0, 0, 0, 0, HP), o1), bake(new THREE.CylinderGeometry(WR * .6, WR * .6, .34, 12), 0xd9d2c0, M(0, 0, 0, 0, 0, HP), o1),
+  add(k.B, bodyMat, true); add(k.M, wheelMat, true); if (info.meshes) for (const m of info.meshes) g.add(m); add(k.G, glassMat); add(k.L, lampMat); add(k.R, brakeMat);
+  const Wp = def.fine ? fineWheel(WR) : [bake(new THREE.CylinderGeometry(WR - .03, WR - .03, .32, 16), RUB, M(0, 0, 0, 0, 0, HP), o1), bake(new THREE.CylinderGeometry(WR * .6, WR * .6, .34, 12), 0xd9d2c0, M(0, 0, 0, 0, 0, HP), o1),
     bake(new THREE.CylinderGeometry(.1, .1, .4, 8), DARK, M(0, 0, 0, 0, 0, HP), o0)];
-  for (let i = 0; i < 16; i++) { const a = i / 16 * 6.283; Wp.push(bake(new THREE.BoxGeometry(.17, .07, .12), 0x161718, M(i % 2 ? .085 : -.085, Math.cos(a) * (WR - .02), Math.sin(a) * (WR - .02), a), o0)); }
-  for (let i = 0; i < 5; i++) { const a = i / 5 * 6.283; for (const sx of [.18, -.18]) Wp.push(bake(new THREE.BoxGeometry(.02, .05, .05), DARK, M(sx, Math.cos(a) * WR * .36, Math.sin(a) * WR * .36, a), o0)); }
+  if (!def.fine) for (let i = 0; i < 16; i++) { const a = i / 16 * 6.283; Wp.push(bake(new THREE.BoxGeometry(.17, .07, .12), 0x161718, M(i % 2 ? .085 : -.085, Math.cos(a) * (WR - .02), Math.sin(a) * (WR - .02), a), o0)); }
+  if (!def.fine) for (let i = 0; i < 5; i++) { const a = i / 5 * 6.283; for (const sx of [.18, -.18]) Wp.push(bake(new THREE.BoxGeometry(.02, .05, .05), DARK, M(sx, Math.cos(a) * WR * .36, Math.sin(a) * WR * .36, a), o0)); }
   const wg = merge(Wp); wheels = [];
-  for (const [lx, lz] of WL) { const piv = new THREE.Group(); piv.position.set(lx, WR, lz); const w = new THREE.Mesh(wg, wheelMat); w.userData.own = true; w.castShadow = true; piv.add(w); g.add(piv); wheels.push({ piv, w }); }
+  for (const [lx, lz] of WL) { const piv = new THREE.Group(); piv.position.set(lx, WR, lz); const w = def.wheelMesh ? def.wheelMesh(lx) : new THREE.Mesh(wg, wheelMat); w.userData.own = !def.wheelMesh; if (def.wsx) w.scale.x = def.wsx; w.castShadow = true; piv.add(w); g.add(piv); wheels.push({ piv, w }); }
   if (info.spare) { const sp = new THREE.Mesh(wg, wheelMat); sp.position.set(info.spare[0], info.spare[1], info.spare[2]); sp.rotation.set(info.spare[3], info.spare[4], info.spare[5]); sp.scale.setScalar(.94); sp.castShadow = true; g.add(sp); }
   for (const sx of [1, -1]) { const s = new THREE.Sprite(glowMat); s.position.set(sx * def.lamp[0], def.lamp[1], def.lamp[2] + .1); s.scale.setScalar(1.5); g.add(s); }
   headlight.position.set(0, def.lamp[1] + .1, def.lamp[2]); headlight.target.position.set(0, .2, def.lamp[2] + 13); g.add(headlight, headlight.target);
@@ -1715,7 +1903,7 @@ function refreshMenu() { const d = CARS[sel.car]; $('cName').textContent = d.nam
 function pickCar(i) { sel.car = (i + CARS.length) % CARS.length; buildCar(CARS[sel.car], PAINTS[sel.paint]); S.y = heightAt(S.x, S.z); buildEngine(CAR); play('whoosh'); refreshMenu(); save(); }
 function pickPaint(i) { sel.paint = (i + PAINTS.length) % PAINTS.length; buildCar(CARS[sel.car], PAINTS[sel.paint]); play('spray'); refreshMenu(); save(); }
 function pickTime(t) { timeName = t; play('tick'); refreshMenu(); save(); }
-PAINTS.forEach((p, i) => { const b = document.createElement('button'); b.style.background = '#' + p.toString(16).padStart(6, '0'); b.setAttribute('aria-label', 'Paint ' + (i + 1)); b.addEventListener('click', () => pickPaint(i)); $('swatches').appendChild(b); });
+PAINTS.forEach((p, i) => { const b = document.createElement('button'); const hx = v => '#' + v.toString(16).padStart(6, '0'); b.style.background = PAINT2[i] == null ? hx(p) : 'linear-gradient(135deg, ' + hx(PAINT2[i]) + ' 50%, ' + hx(p) + ' 50%)'; b.setAttribute('aria-label', 'Paint ' + (i + 1)); b.addEventListener('click', () => pickPaint(i)); $('swatches').appendChild(b); });
 TIMES.forEach(t => { const b = document.createElement('button'); b.className = 'mb'; b.dataset.t = t; b.textContent = TIME_LABEL[t]; b.addEventListener('click', () => pickTime(t)); $('times').appendChild(b); });
 ['Spring', 'Summer', 'Autumn', 'Winter'].forEach((n, i) => { const b = document.createElement('button'); b.className = 'mb'; b.textContent = n; b.addEventListener('click', () => pickSeason(i)); $('seasons').appendChild(b); });
 function applySeason() { paintTerrain(); paintRoads(); retint(); gcx = 1e9; updateGrass(S.x, S.z, true); drawBaseMap(); wx.t = 10; }
@@ -2156,7 +2344,7 @@ function tick(now) {
     b.m.position.set(cx + Math.cos(a) * b.r, Math.max(S.y, 0) + b.h + Math.sin(a * 2) * 3, cz + Math.sin(a) * b.r); b.m.rotation.y = -a; b.m.scale.y = Math.sin(clock * 7 + b.ph); b.m.visible = E.glow > .5; });
 
   // camera
-  { const fv = S.started && camMode === 2 && !vista ? 80 : 58; if (Math.abs(camera.fov - fv) > .05) { camera.fov += (fv - camera.fov) * Math.min(1, dt * 7); camera.updateProjectionMatrix(); } }
+  { const fv = S.started && camMode === 2 && !vista ? 100 : 58; if (Math.abs(camera.fov - fv) > .05) { camera.fov += (fv - camera.fov) * Math.min(1, dt * 7); camera.updateProjectionMatrix(); } }
   if (vista) vistaCam(dt);
   else if (!S.started) { if (dragId === null) menuA += dt * .22; const r = 6.4 + WHEELBASE * .7, cx = S.x + Math.sin(menuA) * r, cz = S.z + Math.cos(menuA) * r, cyy = Math.max(S.y + 2.3, heightAt(cx, cz) + 1.2);
     const kc = Math.min(1, dt * 5); camera.position.x += (cx - camera.position.x) * kc; camera.position.y += (cyy - camera.position.y) * kc; camera.position.z += (cz - camera.position.z) * kc; camera.lookAt(S.x, S.y + 1.25, S.z); }
@@ -2186,6 +2374,7 @@ function tick(now) {
     else { $('arrow').style.visibility = 'hidden'; $('target').textContent = 'everything found'; }
     guard(() => { drawMini(); if (mapOpen) drawBig(); });
     const wb = $('bWinch'); wb.disabled = !S.winch && !findAnchor(); wb.classList.toggle('on', !!S.winch); }
+  if (window.__cam) window.__cam(camera, car);
   renderer.render(scene, camera);
 }
 let errShown = 0;
@@ -2467,7 +2656,7 @@ refreshMenu(); autoDest();
 // the Exit button only exists inside the Android app, where there is something to close
 if (window.NativeApp && window.NativeApp.exit) $('bExit').addEventListener('click', () => { save(); window.NativeApp.exit(); }); else $('bExit').style.display = 'none';
 try { initAudio(); } catch (e) {}
-window.__game = { extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
+window.__game = { pickPaint, PAINTS, extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
 requestAnimationFrame(frame);
 })();
 </script>
