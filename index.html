@@ -162,7 +162,7 @@
   <div class="panel" id="mOpt">
     <div class="lab">TIME OF DAY</div><div class="chips c4" id="times"></div>
     <div class="lab">SEASON</div><div class="chips c4" id="seasons"></div>
-    <div class="lab">OPTIONS</div><div class="chips"><button class="mb" id="bGfx">Graphics: Auto</button><button class="mb" id="bExit">Exit game</button></div>
+    <div class="lab">OPTIONS</div><div class="chips"><button class="mb" id="bGfx">Graphics: Auto</button><button class="mb" id="bDof">Distance focus: On</button><button class="mb" id="bExit">Exit game</button></div>
     <div class="lab">VOLUME</div>
     <div class="vol"><span>Music</span><input type="range" id="vMus" min="0" max="100" step="5" value="70" aria-label="Music volume"></div>
     <div class="vol"><span>Environment</span><input type="range" id="vEnv" min="0" max="100" step="5" value="70" aria-label="Environment volume"></div>
@@ -1201,7 +1201,7 @@ const birds = [];
 (function () { const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, .35, 0, 0, -.25, 1.1, .45, -.1, 0, 0, .35, -1.1, .45, -.1, 0, 0, -.25], 3)); g.computeVertexNormals();
   const m = new THREE.MeshBasicMaterial({ color: 0x3a2d38, side: THREE.DoubleSide });
-  for (let i = 0; i < 9; i++) { const b = new THREE.Mesh(g, m); b.frustumCulled = false; scene.add(b); birds.push({ m: b, r: 22 + jr() * 40, h: 26 + jr() * 22, sp: .18 + jr() * .14, ph: jr() * 6.28 }); } })();
+  for (let i = 0; i < 30; i++) { const b = new THREE.Mesh(g, m); b.frustumCulled = false; scene.add(b); birds.push({ m: b, r: 22 + jr() * 40, h: 26 + jr() * 22, sp: .18 + jr() * .14, ph: jr() * 6.28 }); } })();
 
 /* ---------- vehicles ---------- */
 const HP = Math.PI / 2;
@@ -1718,9 +1718,10 @@ function layTracks(sY, cY, ok) { if (S.surf >= 7) ok = false;
 const WN = 520, wOff = new Float32Array(WN * 3), wSeed = new Float32Array(WN), wCam = new THREE.Vector3();
 for (let i = 0; i < WN; i++) { wOff[i * 3] = (jr() - .5) * 44; wOff[i * 3 + 1] = jr() * 20 - 4; wOff[i * 3 + 2] = (jr() - .5) * 44; wSeed[i] = jr(); }
 const rainP = new Float32Array(WN * 6), rainG = new THREE.BufferGeometry(); rainG.setAttribute('position', new THREE.BufferAttribute(rainP, 3));
-const rainObj = new THREE.LineSegments(rainG, new THREE.LineBasicMaterial({ color: 0xd4e4f0, transparent: true, opacity: 0, depthWrite: false })); rainObj.frustumCulled = false; rainObj.visible = false; scene.add(rainObj);
+const rainObj = new THREE.LineSegments(rainG, new THREE.LineBasicMaterial({ color: 0xd4e4f0, transparent: true, opacity: 0, depthWrite: true })); rainObj.frustumCulled = false; rainObj.visible = false; scene.add(rainObj);
 const flakeP = new Float32Array(WN * 3), flakeC = new Float32Array(WN * 3), flakeG = new THREE.BufferGeometry(); flakeG.setAttribute('position', new THREE.BufferAttribute(flakeP, 3)); flakeG.setAttribute('color', new THREE.BufferAttribute(flakeC, 3));
-const flakeObj = new THREE.Points(flakeG, new THREE.PointsMaterial({ size: 3, sizeAttenuation: false, map: dustTex, vertexColors: true, transparent: true, opacity: .9, depthWrite: false })); flakeObj.frustumCulled = false; flakeObj.visible = false; scene.add(flakeObj);
+const flakeObj = new THREE.Points(flakeG, new THREE.PointsMaterial({ size: 3, sizeAttenuation: false, map: dustTex, vertexColors: true, transparent: true, opacity: .95, alphaTest: .3, depthWrite: true })); flakeObj.frustumCulled = false; flakeObj.visible = false; scene.add(flakeObj);
+const fallLeaf = (function () { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'); x.translate(16, 16); x.rotate(.6); x.fillStyle = '#fff'; x.beginPath(); x.moveTo(0, -14); x.quadraticCurveTo(11, -4, 0, 14); x.quadraticCurveTo(-11, -4, 0, -14); x.fill(); x.strokeStyle = 'rgba(0,0,0,.25)'; x.lineWidth = 1.2; x.beginPath(); x.moveTo(0, -12); x.lineTo(0, 12); x.stroke(); const t = new THREE.CanvasTexture(c); t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; return t; })();
 const LEAFC = [[.86, .36, .16], [.92, .6, .18], [.8, .26, .14], [.95, .78, .3]]; let wMode = 0;
 function weatherFrame(dt) { wx.t += dt; const wave = .5 + .5 * Math.sin(wx.t / 70 * 6.283), w2 = .5 + .5 * Math.sin(wx.t / 29 + 2); let rain = 0, snow = 0, leaves = 0, over = .04;
   if (season === 0) { rain = sstep(.5, .8, wave); over = sstep(.3, .7, wave) * .9; }          // spring: showers pass through, then the sun is back
@@ -1729,8 +1730,8 @@ function weatherFrame(dt) { wx.t += dt; const wave = .5 + .5 * Math.sin(wx.t / 7
   const k = Math.min(1, dt * .6); wx.rain += (rain - wx.rain) * k; wx.snow += (snow - wx.snow) * k; wx.leaves += (leaves - wx.leaves) * k; wx.over += (over - wx.over) * k;
   let cx = camera.position.x - wCam.x, cy = camera.position.y - wCam.y, cz = camera.position.z - wCam.z; wCam.copy(camera.position); if (Math.abs(cx) + Math.abs(cy) + Math.abs(cz) > 30) cx = cy = cz = 0;
   const mode = wx.rain > .03 ? 1 : wx.snow > .03 ? 2 : wx.leaves > .03 ? 3 : 0; rainObj.visible = mode === 1; flakeObj.visible = mode > 1; if (!mode) { wMode = 0; return; }
-  if (mode !== wMode) { wMode = mode; for (let i = 0; i < WN; i++) { const c = mode === 3 ? LEAFC[i % 4] : [1, 1, 1]; flakeC[i * 3] = c[0]; flakeC[i * 3 + 1] = c[1]; flakeC[i * 3 + 2] = c[2]; } flakeG.attributes.color.needsUpdate = true; }
-  const n = Math.max(1, Math.round(WN * (mode === 1 ? wx.rain : mode === 2 ? wx.snow : wx.leaves * .16))), vy = mode === 1 ? -24 : mode === 2 ? -1.7 : -1.1, wind = mode === 1 ? -3 : mode === 2 ? -1.2 : -3.2, px = camera.position.x, py = camera.position.y, pz = camera.position.z;
+  if (mode !== wMode) { wMode = mode; flakeObj.material.size = mode === 3 ? 17 * pixelRatio : 3.5 * pixelRatio; flakeObj.material.map = mode === 3 ? fallLeaf : dustTex; flakeObj.material.needsUpdate = true; for (let i = 0; i < WN; i++) { const c = mode === 3 ? LEAFC[i % 4] : [1, 1, 1]; flakeC[i * 3] = c[0]; flakeC[i * 3 + 1] = c[1]; flakeC[i * 3 + 2] = c[2]; } flakeG.attributes.color.needsUpdate = true; }
+  const n = Math.max(1, Math.round(WN * (mode === 1 ? wx.rain : mode === 2 ? wx.snow : wx.leaves * .5))), vy = mode === 1 ? -24 : mode === 2 ? -1.7 : -1.5, wind = mode === 1 ? -3 : mode === 2 ? -1.2 : -3.2, px = camera.position.x, py = camera.position.y, pz = camera.position.z;
   for (let i = 0; i < n; i++) { const o = i * 3, sd = wSeed[i];
     let x = wOff[o] - cx + (wind + (mode > 1 ? Math.sin(wx.t * (1 + sd) + sd * 40) * (mode === 3 ? 1.6 : .7) : 0)) * dt, y = wOff[o + 1] - cy + vy * (.8 + sd * .4) * dt, z = wOff[o + 2] - cz + (mode > 1 ? Math.cos(wx.t * (.8 + sd) + sd * 20) * .6 * dt : 0);
     if (y < -4) y += 20; else if (y > 16) y -= 20; if (x < -22) x += 44; else if (x > 22) x -= 44; if (z < -22) z += 44; else if (z > 22) z -= 44;
@@ -1738,7 +1739,7 @@ function weatherFrame(dt) { wx.t += dt; const wave = .5 + .5 * Math.sin(wx.t / 7
     if (mode === 1) { const q = i * 6; rainP[q] = px + x; rainP[q + 1] = py + y; rainP[q + 2] = pz + z; rainP[q + 3] = px + x + .12; rainP[q + 4] = py + y + .9; rainP[q + 5] = pz + z; }
     else { flakeP[o] = px + x; flakeP[o + 1] = py + y; flakeP[o + 2] = pz + z; } }
   if (mode === 1) { rainG.setDrawRange(0, n * 2); rainG.attributes.position.needsUpdate = true; rainObj.material.opacity = (.25 + .3 * wx.rain) * (.4 + .6 * lightK); }
-  else { flakeG.setDrawRange(0, n); flakeG.attributes.position.needsUpdate = true; flakeObj.material.size = (mode === 2 ? 3 : 5) * pixelRatio; flakeObj.material.color.setScalar(.35 + .65 * lightK); } }
+  else { flakeG.setDrawRange(0, n); flakeG.attributes.position.needsUpdate = true; flakeObj.material.size = (mode === 2 ? 3.5 : 15) * pixelRatio; flakeObj.material.color.setScalar(.35 + .65 * lightK); } }
 
 const SEASON_ENV = [{ sky: K(0xbfe6f2), k: .2, sun: 1, amb: 1.02, fog: 1.1 }, { sky: K(0xffe6b8), k: .14, sun: 1.08, amb: 1, fog: 1.15 }, { sky: K(0xf2dccf), k: 0, sun: 1, amb: 1, fog: 1 }, { sky: K(0xdde8f4), k: .4, sun: .85, amb: 1.08, fog: .8 }];
 /* ---------- light: four times of day ---------- */
@@ -1767,6 +1768,7 @@ function applyEnv(dt) {
   skyU.top.value.lerp(SE.sky, sk).lerp(tmpC, ov * .75); skyU.hor.value.lerp(SE.sky, sk * .6).lerp(tmpC, ov * .6); skyU.sunCol.value.multiplyScalar(1 - ov * .75);
   scene.fog.color.lerp(SE.sky, sk * .5).lerp(tmpC, ov * .55); renderer.setClearColor(scene.fog.color);
   scene.fog.far *= SE.fog * (1 - ov * .35) * (1 - wx.snow * .2); scene.fog.near *= 1 - ov * .45;
+  if (season === 3) { const nk = clamp(1 - E.glow, 0, 1); if (nk > 0) { scene.fog.far *= 1 - .6 * nk; scene.fog.near *= 1 - .75 * nk; tmpC.setRGB(.23, .26, .32); scene.fog.color.lerp(tmpC, .3 * nk); renderer.setClearColor(scene.fog.color); } }
   sun.intensity *= SE.sun * (1 - ov * .5); hemi.intensity *= SE.amb; hemi.color.lerp(SE.sky, sk * .5); cloudMat.color.lerp(tmpC, ov * .7); farMat.color.lerp(tmpC, ov * .4);
   waterU.uSky.value.copy(skyU.hor.value).lerp(skyU.top.value, .4).multiplyScalar(1 - caveK * .9);
   lightK = clamp(sun.intensity * .7 + hemi.intensity * .6, .25, 1);
@@ -2336,6 +2338,7 @@ function tick(now) {
   fallTex[0].offset.y += dt * 1.25; fallTex[1].offset.y += dt * 1.9; for (const m of fallMat) m.color.setScalar(.3 + .7 * lightK); foamMat.color.setScalar(.3 + .7 * lightK); foamMat.opacity = .5 + .12 * Math.sin(clock * 3);
   if (fallsPos && Math.random() < .55 && Math.hypot(fallsPos.x - camera.position.x, fallsPos.z - camera.position.z) < 190) puff(fallsPos.x + (Math.random() - .5) * 5, .4, fallsPos.z + (Math.random() - .5) * 4, 0xffffff, 1.3, 2.6);
   glassMat.opacity = S.started && camMode === 2 && !vista ? .08 : .42;
+  { const hide = S.started && camMode === 2 && !vista; if (car && car.userData.hid !== hide) { car.userData.hid = hide; car.traverse(o => { if (o.isMesh && o.material !== beamMat && o.material !== glowMat) o.visible = !hide; }); } }
   layTracks(sY, cY, S.ground > .05 && S.surf !== 2);
 
   // dust, spray and smoke
@@ -2369,7 +2372,7 @@ function tick(now) {
   if ((cullT -= dt) <= 0) { cullT = .3; const lim = scene.fog.far + 20; for (const c of chunks) c.m.visible = Math.hypot(c.x - camera.position.x, c.z - camera.position.z) < Math.min(lim, c.far || 1e9) + c.r; }
   clouds.forEach((c, i) => { c.position.x += dt * 5; if (c.position.x > 1400) c.position.x = -1400; c.visible = i < [12, 5, 9, 12][season]; });
   birds.forEach((b, i) => { const a = clock * b.sp + b.ph, cx = S.x + Math.sin(i * 2.1) * 30, cz = S.z + Math.cos(i * 1.7) * 30;
-    b.m.position.set(cx + Math.cos(a) * b.r, Math.max(S.y, 0) + b.h + Math.sin(a * 2) * 3, cz + Math.sin(a) * b.r); b.m.rotation.y = -a; b.m.scale.y = Math.sin(clock * 7 + b.ph); b.m.visible = E.glow > .5; });
+    b.m.position.set(cx + Math.cos(a) * b.r, Math.max(S.y, 0) + b.h + Math.sin(a * 2) * 3, cz + Math.sin(a) * b.r); b.m.rotation.y = -a; b.m.scale.y = Math.sin(clock * 7 + b.ph); b.m.visible = E.glow > .5 && (i < 9 || season === 0); });
 
   // camera
   { const fv = S.started && camMode === 2 && !vista ? 100 : 58; if (Math.abs(camera.fov - fv) > .05) { camera.fov += (fv - camera.fov) * Math.min(1, dt * 7); camera.updateProjectionMatrix(); } }
@@ -2379,7 +2382,7 @@ function tick(now) {
   else { let dy = S.yaw - camYaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); camYaw += dy * Math.min(1, dt * 2.6);
     if (dragId === null && !(pad.look > 0)) { orbit *= Math.exp(-dt * 1.2); orbitPitch *= Math.exp(-dt * 1.2); }
     const cy = camYaw + orbit;
-    if (camMode === 2) { const eo = CAR.eyeO || [0, -.04, .3]; v3.set(CAR.eye[0] + eo[0], CAR.eye[1] + eo[1], CAR.eye[2] + eo[2]).applyMatrix4(car.matrixWorld); camera.position.copy(v3); const ly = S.yaw + orbit;
+    if (camMode === 2) { const eo = CAR.eyeO || [0, -.04, .3]; v3.set(0, Math.min(1.7, Math.max(1.2, CAR.eye[1] + eo[1])), CAR.wb * .3).applyMatrix4(car.matrixWorld); camera.position.copy(v3); const ly = S.yaw + orbit;
       camera.lookAt(v3.x + Math.sin(ly) * 20, v3.y + Math.sin(S.pitch) * 20 - .2 - orbitPitch * 12, v3.z + Math.cos(ly) * 20); }
     else { const ck = CAR.cam || 1, inC = caveK > .04, far = camMode && !inC; let dist = (far ? 17 : 9.5) * ck * (1 - .28 * caveK); const hgt = (far ? 8 : 3.9) * (.4 + .6 * ck) - caveK * .9 + orbitPitch * dist * (inC ? .4 : 1);
       let cx = S.x - Math.sin(cy) * dist, cz = S.z - Math.cos(cy) * dist;
@@ -2403,11 +2406,28 @@ function tick(now) {
     guard(() => { drawMini(); if (mapOpen) drawBig(); });
     const wb = $('bWinch'); wb.disabled = !S.winch && !findAnchor(); wb.classList.toggle('on', !!S.winch); }
   if (window.__cam) window.__cam(camera, car);
-  renderer.render(scene, camera);
+  try { dof.draw(); } catch (e) { dof.ok = false; renderer.setRenderTarget(null); renderer.render(scene, camera); }      // if the effect ever fails, carry on without it
 }
 let errShown = 0;
 function report(e) { if (errShown++ < 2) { try { toast('Glitch: ' + (e && e.message ? e.message : e), 6); } catch (_) {} } }
 function guard(fn) { try { fn(); } catch (e) { report(e); } }
+// distance focus: draw the scene into a buffer that also keeps how far away each pixel is, blur a half-size copy, and blend the blur in with distance
+const dof = { on: true, ok: true, w: 0, h: 0 };
+(function () { const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2)), sc = new THREE.Scene(); sc.add(quad); quad.frustumCulled = false;
+  const vs = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }', mk = (fs, u) => new THREE.ShaderMaterial({ uniforms: u, vertexShader: vs, fragmentShader: fs, depthTest: false, depthWrite: false, toneMapped: false });
+  const blur = mk('uniform sampler2D t; uniform vec2 d; varying vec2 vUv; void main(){ vec3 c = texture2D(t, vUv).rgb * 0.227; c += (texture2D(t, vUv + d * 1.38).rgb + texture2D(t, vUv - d * 1.38).rgb) * 0.316; c += (texture2D(t, vUv + d * 3.23).rgb + texture2D(t, vUv - d * 3.23).rgb) * 0.07; gl_FragColor = vec4(c, 1.0); }', { t: { value: null }, d: { value: new THREE.Vector2() } });
+  const comp = mk('uniform sampler2D t; uniform sampler2D b; uniform sampler2D z; uniform vec4 f; varying vec2 vUv; void main(){ float d = texture2D(z, vUv).x, lin = f.x * f.y / (f.y - d * (f.y - f.x)); float k = d > 0.99995 ? 0.6 : smoothstep(f.z, f.w, lin); gl_FragColor = vec4(mix(texture2D(t, vUv).rgb, texture2D(b, vUv).rgb, k * 0.92), 1.0); }', { t: { value: null }, b: { value: null }, z: { value: null }, f: { value: new THREE.Vector4(.5, 4600, 70, 520) } }); dof.f = comp.uniforms.f.value;
+  let rt = null, b1 = null, b2 = null;
+  const size = () => { const v = renderer.getDrawingBufferSize(new THREE.Vector2()), w = v.x, h = v.y; if (w === dof.w && h === dof.h) return; dof.w = w; dof.h = h; for (const r of [rt, b1, b2]) if (r) r.dispose();
+    rt = renderer.capabilities.isWebGL2 ? new THREE.WebGLMultisampleRenderTarget(w, h) : new THREE.WebGLRenderTarget(w, h); rt.depthTexture = new THREE.DepthTexture(w, h); rt.depthTexture.type = THREE.UnsignedIntType; rt.depthTexture.minFilter = rt.depthTexture.magFilter = THREE.NearestFilter;
+    const o = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false }; b1 = new THREE.WebGLRenderTarget(w >> 1, h >> 1, o); b2 = new THREE.WebGLRenderTarget(w >> 1, h >> 1, o); };
+  const pass = (m, target) => { quad.material = m; renderer.setRenderTarget(target); renderer.render(sc, cam); };
+  dof.draw = () => { if (!dof.on || !dof.ok || quality < 2 || !(renderer.capabilities.isWebGL2 || renderer.extensions.get('WEBGL_depth_texture'))) { renderer.render(scene, camera); return; } size();
+    renderer.setRenderTarget(rt); renderer.render(scene, camera); const sh = renderer.shadowMap.autoUpdate; renderer.shadowMap.autoUpdate = false;
+    const r = 1.6 * dof.h / 720; blur.uniforms.t.value = rt.texture; blur.uniforms.d.value.set(r / dof.w, 0); pass(blur, b1); blur.uniforms.t.value = b1.texture; blur.uniforms.d.value.set(0, r / dof.h); pass(blur, b2);
+    comp.uniforms.t.value = rt.texture; comp.uniforms.b.value = b2.texture; comp.uniforms.z.value = rt.depthTexture; comp.uniforms.f.value.x = camera.near; comp.uniforms.f.value.y = camera.far; pass(comp, null); renderer.shadowMap.autoUpdate = sh; }; })();
+{ try { dof.on = localStorage.getItem('slowtrail-dof') !== '0'; } catch (e) {} const show = () => { $('bDof').textContent = 'Distance focus: ' + (dof.on ? 'On' : 'Off'); }; show();
+  $('bDof').addEventListener('click', () => { dof.on = !dof.on; try { localStorage.setItem('slowtrail-dof', dof.on ? '1' : '0'); } catch (e) {} show(); }); }
 function frame(now) { requestAnimationFrame(frame); try { tick(now); } catch (e) { report(e); try { renderer.render(scene, camera); } catch (_) {} } }
 canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); $('fadeMsg').textContent = 'Graphics were reset — reloading'; $('fade').classList.add('show'); setTimeout(() => location.reload(), 1200); });
 let vista = null, vistaK = 0;
@@ -2684,7 +2704,7 @@ refreshMenu(); autoDest();
 // the Exit button only exists inside the Android app, where there is something to close
 if (window.NativeApp && window.NativeApp.exit) $('bExit').addEventListener('click', () => { save(); window.NativeApp.exit(); }); else $('bExit').style.display = 'none';
 try { initAudio(); } catch (e) {}
-window.__game = { pickPaint, PAINTS, roadY, extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
+window.__game = { dof, pickPaint, PAINTS, roadY, extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
 requestAnimationFrame(frame);
 })();
 </script>
