@@ -510,7 +510,7 @@ function pathFrom(r, goal) { const p = []; for (let v = goal; v >= 0; v = r.prev
   if (iA < 0 || iB - iA < 30) return;
   const bb = [1e9, -1e9, 1e9, -1e9]; for (const p of pts) { bb[0] = Math.min(bb[0], p.x - 62); bb[1] = Math.max(bb[1], p.x + 62); bb[2] = Math.min(bb[2], p.z - 62); bb[3] = Math.max(bb[3], p.z + 62); }
   const i0 = Math.max(1, Math.floor((bb[0] + HALF) / CS)), i1 = Math.min(N - 1, Math.ceil((bb[1] + HALF) / CS)), j0 = Math.max(1, Math.floor((bb[2] + HALF) / CS)), j1 = Math.min(N - 1, Math.ceil((bb[3] + HALF) / CS));
-  const ceil = new Float32Array(NV * NV).fill(1e4), info = new Float32Array(NV * NV * 3);
+  const ceil = new Float32Array(NV * NV).fill(1e4), info = new Float32Array(NV * NV * 3), capOpen = new Uint8Array(NV * NV);
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * NV + i, x = -HALF + i * CS, z = -HALF + j * CS, n = near(x, z), d = n.d, dc = n.dc, f = pts[n.i].f;
     info[k * 3] = d; info[k * 3 + 1] = dc; info[k * 3 + 2] = f;
     if ((n.i === 0 && (x - ax) * ux + (z - az) * uz < 0) || (n.i === nP - 1 && (x - bx) * ux + (z - bz) * uz > 0)) continue;          // nothing beyond the two ends
@@ -523,8 +523,10 @@ function pathFrom(r, goal) { const p = []; for (let v = goal; v >= 0; v = r.prev
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * NV + i; if (!caveMask[k]) continue;
     let edge = false; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) if (!caveMask[k + a * NV + b]) edge = true;
     const x = -HALF + i * CS, z = -HALF + j * CS, d = info[k * 3], dc = info[k * 3 + 1], Fc = Math.max(.55, floorF(info[k * 3 + 2]));
+    let open = false; if (edge) for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const k2 = k + a * NV + b; if (!caveMask[k2] && caveIn[k2] > .05) open = true; }
+    if (open) { capOpen[k] = 1; ceil[k] = Math.max(Math.max(.55, floorF(info[k * 3 + 2])) + 4.5, H0[k] - 1.8 - vnoise(x / 2.6 + 9, z / 2.6 + 2) * 3.6); continue; }
     ceil[k] = edge ? H0[k] : Math.min(H0[k] - 1, Fc + 11 - 4 * sstep(6, 16, d) + (dc < 46 ? 11 * (1 - sstep(0, 42, dc)) : 0) + (vnoise(x / 7 + 1, z / 7 + 5) - .5) * 1.8); }
-  cave = { pts, C, iA, iB, bb, near, ceil, H0, ux, uz, px, pz, swapped: false, floorF,
+  cave = { capOpen, pts, C, iA, iB, bb, near, ceil, H0, ux, uz, px, pz, swapped: false, floorF,
     swap() { for (let k = 0; k < NV * NV; k++) if (caveMask[k]) { const t = H[k]; H[k] = H0[k]; H0[k] = t; } this.swapped = !this.swapped; } };
   sights.push({ x: ax, z: az, kind: 'cave', name: 'Echo Cave', found: false, ry: Math.atan2(ux, uz) });
   sights.push({ x: C.x + px * 11, z: C.z + pz * 11, kind: 'lake', name: 'Mirror Lake', found: false, ry: 0, noTrail: true });          // an islet just off the line through the chamber
@@ -580,7 +582,7 @@ const placeR = p => p.kind === undefined ? 14 : p.kind === 'lake' ? 11 : p.kind 
   const pad = (p, r0, r1) => { const hC = heightAt(p.x, p.z), i0 = Math.floor((p.x - r1 + HALF) / CS), i1 = Math.ceil((p.x + r1 + HALF) / CS), j0 = Math.floor((p.z - r1 + HALF) / CS), j1 = Math.ceil((p.z + r1 + HALF) / CS);
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { if (i < 0 || j < 0 || i > N || j > N) continue;
       const d = Math.hypot(-HALF + i * CS - p.x, -HALF + j * CS - p.z); H[j * NV + i] = lerp(H[j * NV + i], hC, 1 - sstep(r0, r1, d)); } return hC; };
-  for (const c of camps) c.h = pad(c, 8, 18);
+  for (const c of camps) c.h = pad(c, 13.5, 23);
   for (const s of sights) if (s.kind !== 'jetty' && s.kind !== 'falls' && s.kind !== 'cave' && s.kind !== 'lake') pad(s, s.kind === 'summit' ? 4 : s.kind === 'view' ? 5 : 7, s.kind === 'summit' ? 9 : s.kind === 'view' ? 10 : 13);
 })();
 // keep big things out of the line of sight at viewpoints and the waterfall
@@ -779,6 +781,10 @@ const waterMat = new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: tru
     const mk = (p, c2, idx2) => { const q = new THREE.BufferGeometry(); q.setAttribute('position', new THREE.BufferAttribute(p, 3)); q.setAttribute('color', new THREE.BufferAttribute(c2, 3)); q.setAttribute('uv', new THREE.BufferAttribute(cu, 2)); q.setIndex(idx2); q.computeVertexNormals(); return q; };
     const cg = mk(cp, cc, ci), roof = new THREE.Mesh(cg, ground.material); roof.receiveShadow = true; roof.castShadow = true; scene.add(roof);
     scene.add(new THREE.Mesh(mk(rp, rc, ri), new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 0, map: tex })));
+    { const sp = [], sc = [], si = [], seg = (k1, k2) => { const b = sp.length / 3; for (const [k, top] of [[k1, 1], [k2, 1], [k2, 0], [k1, 0]]) { const x = -HALF + (k % NV) * CS, z = -HALF + ((k / NV) | 0) * CS; sp.push(x, top ? cave.H0[k] + .05 : cave.ceil[k], z); const v = (.42 + .2 * vnoise(x / 2, z / 2 + (top ? 0 : 4))) * (top ? 1.05 : .8); sc.push(v * 1.08, v * .97, v * .92); } si.push(b, b + 1, b + 2, b, b + 2, b + 3); };
+      for (const k of kk) if (cave.capOpen[k]) { if (cave.capOpen[k + 1]) seg(k, k + 1); if (cave.capOpen[k + NV]) seg(k, k + NV); if (cave.capOpen[k + NV + 1] && !cave.capOpen[k + 1] && !cave.capOpen[k + NV]) seg(k, k + NV + 1); if (cave.capOpen[k + NV - 1] && !cave.capOpen[k - 1] && !cave.capOpen[k + NV]) seg(k, k + NV - 1); }
+      if (sp.length) { const q = new THREE.BufferGeometry(); q.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3)); q.setAttribute('color', new THREE.Float32BufferAttribute(sc, 3)); q.setAttribute('uv', new THREE.Float32BufferAttribute(sp.map((v, i) => i % 3 === 1 ? null : v / 6).filter(v => v !== null), 2)); q.setIndex(si); q.computeVertexNormals();
+        const lip = new THREE.Mesh(q, new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 0, map: tex, side: THREE.DoubleSide })); lip.castShadow = true; scene.add(lip); } }
     grab = () => { kk.forEach((k, m) => { cc[m * 3] = col[k * 3]; cc[m * 3 + 1] = col[k * 3 + 1]; cc[m * 3 + 2] = col[k * 3 + 2]; }); cg.attributes.color.needsUpdate = true; };
     // shade the roof (and the ground it joins) as the unbroken hillside, so no seam shows from outside
     const hO = k => caveMask[k] ? cave.H0[k] : H[k], gn = g.attributes.normal, cn = cg.attributes.normal;
@@ -863,7 +869,7 @@ natLeafMat.onBeforeCompile = sh => { sh.uniforms.uTime = timeU; sh.uniforms.uWin
 natLeafMat.extensions = { derivatives: true };
 natLeafMat.userData.depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: natTex, alphaTest: .42 });
 // rocks and logs: the scan's own picture, tinted by the ground it stands on
-const natSolid = gain => { const m = new THREE.MeshPhongMaterial({ map: natTex, shininess: 2, vertexColors: true }); m.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <color_vertex>', 'vColor = (instanceColor.xyz + .35) * ' + gain.toFixed(2) + ';'); }; return m; };
+const natSolid = gain => { const m = new THREE.MeshPhongMaterial({ map: natTex, shininess: 2, vertexColors: true }); m.userData.gain = gain; m.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <color_vertex>', 'vColor = (instanceColor.xyz + .35) * ' + gain.toFixed(2) + ';'); }; return m; };
 const natRockMat = natSolid(1.12), natWoodMat = natSolid(.82);
 /* ---------- rocks, trees, plants ---------- */
 const chunks = [];
@@ -992,7 +998,7 @@ if (cave) (function () {
   const { pts, C, iA, iB } = cave, cr = mulberry32(5150), rock = [], cry = [], nP = pts.length;
   const nrm = i => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(nP - 1, i + 1)], l = Math.hypot(b.x - a.x, b.z - a.z) || 1; return [(b.z - a.z) / l, -(b.x - a.x) / l]; };
   // invisible guards along the rim keep you off the roof, which is only a picture of the hillside
-  const guard = (x, z) => addSolid({ x, z, h: 0, r: 3.4, top: 0, ghost: true });
+  const guard = () => {};
   for (let i = iA - 4; i <= iB + 4; i += 2) { if (i < 1 || i >= nP - 1) continue; const p = pts[i], n = nrm(i);
     for (const sd of [1, -1]) { const x = p.x + n[0] * sd * 19.8, z = p.z + n[1] * sd * 19.8; if (Math.hypot(x - C.x, z - C.z) > 47) guard(x, z); } }
   for (let k = 0; k < 54; k++) { const a = k / 54 * 6.283, x = C.x + Math.cos(a) * 46.8, z = C.z + Math.sin(a) * 46.8; if (cave.near(x, z).d > 18.6) guard(x, z); }
@@ -1028,7 +1034,7 @@ if (cave) (function () {
 let jungleK = 0;
 function caveFrame(dt) { jungleK += (jungleAt(S.x, S.z) * (1 - .9 * sstep(12, 30, S.y)) - jungleK) * Math.min(1, dt * 1.2);
   let k = 0;
-  if (cave) { const q = cave.near(S.x, S.z); if (q.i >= cave.iA && q.i <= cave.iB && (q.d < 17.5 || q.dc < 45)) k = sstep(0, 7, Math.min(q.i - cave.iA, cave.iB - q.i) + 1); }
+  if (cave) { const q = cave.near(S.x, S.z); if (q.i >= cave.iA && q.i <= cave.iB && (q.d < 17.5 || q.dc < 45) && !onRoof(S.x, S.z, S.y)) k = sstep(0, 7, Math.min(q.i - cave.iA, cave.iB - q.i) + 1); }
   caveK += (k - caveK) * Math.min(1, dt * 2.5); if (caveK < .002) caveK = 0;
   if (!cave) return;
   cave.worms.material.size = 2.3 * pixelRatio; shaftMat.opacity = caveK * (.05 + .13 * E.glow);
@@ -1252,7 +1258,7 @@ camps.forEach((c, i) => {
     for (const q of [[7.5, 7], [-7.5, 7.5], [3.5, 9.8], [-3.5, 10]]) { add(new THREE.CylinderGeometry(.05, .06, 2.5, 5), 0x4a3a2c, M(q[0], 1.25, q[1])); add(new THREE.BoxGeometry(.28, .36, .28), 0xffe2a0, M(q[0], 2.6, q[1]), { jit: 0 }); add(new THREE.BoxGeometry(.34, .06, .34), 0x3a3a40, M(q[0], 2.82, q[1])); } }
   const m = new THREE.Mesh(merge(parts), vcMat); m.castShadow = true; g.add(m); if (CAMPON) campProps(c, i, g, gy);
   const fire = new THREE.Mesh(new THREE.ConeGeometry(.34, .95, 5), new THREE.MeshBasicMaterial({ color: 0xffa531 })); fire.position.y = .62; g.add(fire); c.fire = fire;
-  const fire2 = new THREE.Mesh(new THREE.ConeGeometry(.2, .55, 4), new THREE.MeshBasicMaterial({ color: 0xffe07a })); fire2.position.y = .5; g.add(fire2);
+  const fire2 = new THREE.Mesh(new THREE.ConeGeometry(.2, .55, 4), new THREE.MeshBasicMaterial({ color: 0xffe07a })); fire2.position.y = .5; g.add(fire2); if (CAMPON) { fire.visible = false; fire2.visible = false; }
   const beam = new THREE.Mesh(new THREE.CylinderGeometry(.5, 1.6, 130, 8, 1, true),
     new THREE.MeshBasicMaterial({ color: 0xffc56b, transparent: true, opacity: .32, depthWrite: false, fog: false, side: THREE.DoubleSide }));
   beam.position.y = 65; g.add(beam); c.beam = beam; c.gy = gy; scene.add(g);
@@ -1691,8 +1697,13 @@ function vmRepaint(t, cv, hex) { if (!t.base) return; const s = t.size, x = cv.i
   for (let i = 0; i < o.length; i += 4) { const k = m ? m[i] / 255 : 1, v = b[i]; o[i] = b[i] + (Math.min(255, v * pr) - b[i]) * k; o[i + 1] = b[i + 1] + (Math.min(255, v * pg) - b[i + 1]) * k; o[i + 2] = b[i + 2] + (Math.min(255, v * pb) - b[i + 2]) * k; o[i + 3] = 255; }
   if (t.gm) { const g = t.gm; for (let i = 0; i < o.length; i += 4) { const k = g[i] / 255; if (k > 0) { o[i] += (46 - o[i]) * k; o[i + 1] += (63 - o[i + 1]) * k; o[i + 2] += (76 - o[i + 2]) * k; o[i + 3] = 255 * (1 - .58 * k); } } }
   x.putImageData(out, 0, 0); cv.needsUpdate = true; }
+const brakeU = { value: 0 }, rearZU = { value: -2 }, carInvU = { value: new THREE.Matrix4() };
+function vmBrakeHook(m, paint) { m.userData.paintOK = { value: 1 }; const ok = m.userData.paintOK; if (!paint) ok.value = 1; m.onBeforeCompile = sh => { sh.uniforms.uBrake = brakeU; sh.uniforms.uRearZ = rearZU; sh.uniforms.uOK = ok; sh.uniforms.uCarInv = carInvU;
+    sh.vertexShader = 'uniform mat4 uCarInv; varying float vLz;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vLz = (uCarInv * modelMatrix * vec4(transformed, 1.0)).z;');
+    sh.fragmentShader = 'uniform float uBrake; uniform float uRearZ; uniform float uOK; varying float vLz;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n float rd = smoothstep(1.45, 2.1, diffuseColor.r / (max(diffuseColor.g, diffuseColor.b) + .025)) * smoothstep(.05, .12, diffuseColor.r) * smoothstep(uRearZ + 1.1, uRearZ + .6, vLz) * uOK; totalEmissiveRadiance += vec3(1.0, .16, .08) * rd * uBrake;'); };
+  m.customProgramCacheKey = () => 'vmbrake'; return m; }
 function vmGet(name) { if (vmc[name]) return vmc[name]; const D = VMD[name], M = vmc[name] = { m: D.m, tex: {}, a: D.m.paint0, b: D.m.paint0, body: [], wheel: [] };
-  const phong = o => new THREE.MeshPhongMaterial(Object.assign({ vertexColors: true, side: THREE.DoubleSide }, o));
+  const phong = o => { const pt = !!o.paintTex; delete o.paintTex; return vmBrakeHook(new THREE.MeshPhongMaterial(Object.assign({ vertexColors: true, side: THREE.DoubleSide }, o)), pt); };
   M.paintA = phong({ shininess: 70, specular: 0x5a5650 }); M.paintB = phong({ shininess: 70, specular: 0x5a5650 }); M.trim = phong({ shininess: 22, specular: 0x333333 }); M.lit = new THREE.MeshBasicMaterial({ color: 0xfff3c4, side: THREE.DoubleSide });
   const texOf = (key, kind) => { let t = M.tex[key]; if (!t) { t = M.tex[key] = { kinds: {} }; const im = new Image(); im.onload = () => { t.img = im; t.size = im.width; const grab = i => { const c = document.createElement('canvas'); c.width = c.height = t.size; const x = c.getContext('2d'); x.drawImage(i, 0, 0, t.size, t.size); return x.getImageData(0, 0, t.size, t.size).data; };
           if (t.plain) { t.plain.image = im; t.plain.needsUpdate = true; } if (t.cvA) { t.base = grab(im); const fin = () => { for (const cv of [t.cvA, t.cvB]) if (cv) { cv.image.width = cv.image.height = t.size; } vmRepaint(t, t.cvA, M.a); if (t.cvB) vmRepaint(t, t.cvB, M.b); };
@@ -1702,11 +1713,11 @@ function vmGet(name) { if (vmc[name]) return vmc[name]; const D = VMD[name], M =
     return t; };
   const build = (list, into) => { for (const e of list) { const g = vmGeo(e.g); let mat;
       if (e.t) { const t = texOf(e.t, e.k), map = e.k === 'paint' || e.k === 'pglass' ? t.cvA : e.k === 'paint2' ? t.cvB : t.plain; if (e.g.rep) map.wrapS = map.wrapT = THREE.RepeatWrapping;
-        mat = t.kinds[e.k] || (t.kinds[e.k] = e.k === 'lit' ? new THREE.MeshBasicMaterial({ map, side: THREE.DoubleSide }) : e.k === 'pglass' ? phong({ map, shininess: 90, specular: 0x777770, transparent: true }) : phong(e.k === 'trim' ? { map, shininess: 22, specular: 0x333333 } : { map, shininess: 70, specular: 0x5a5650 })); }
+        mat = t.kinds[e.k] || (t.kinds[e.k] = e.k === 'lit' ? new THREE.MeshBasicMaterial({ map, side: THREE.DoubleSide }) : e.k === 'pglass' ? phong({ map, shininess: 90, specular: 0x777770, transparent: true }) : phong(e.k === 'trim' ? { map, shininess: 22, specular: 0x333333 } : { map, shininess: 70, specular: 0x5a5650, paintTex: 1 })); }
       else mat = e.k === 'paint' ? M.paintA : e.k === 'paint2' ? M.paintB : e.k === 'glass' ? glassMat : e.k === 'lit' ? M.lit : e.k === 'rear' ? brakeMat : M.trim;
       into.push({ g, mat, k: e.k }); } };
   build(D.parts, M.body); build(D.wheel, M.wheel); for (const k in M.tex) M.tex[k].go(); return M; }
-function vmPaint(M, a, b) { M.a = a; M.b = b; M.paintA.color.setHex(a); M.paintB.color.setHex(b); for (const k in M.tex) { const t = M.tex[k]; if (t.cvA) vmRepaint(t, t.cvA, a); if (t.cvB) vmRepaint(t, t.cvB, b); } }
+function vmPaint(M, a, b) { M.a = a; M.b = b; { const red = h => { const r = h >> 16 & 255, g = h >> 8 & 255, bl = h & 255; return r > 50 && r - Math.max(g, bl) * 1.35 > 12; }, ok = red(a) || red(b) ? 0 : 1; for (const e of M.body) if (e.mat.userData.paintOK && e.k !== 'trim') e.mat.userData.paintOK.value = ok; } M.paintA.color.setHex(a); M.paintB.color.setHex(b); for (const k in M.tex) { const t = M.tex[k]; if (t.cvA) vmRepaint(t, t.cvA, a); if (t.cvB) vmRepaint(t, t.cvB, b); } }
 // a plain cabin to see through the windows: floor, dashboard, two seats, a steering wheel and (optionally) a rear bench
 function vmInside(k, o) { const { bx, cy } = k, Mt = k.M, IN = 0x24262a, ST = 0x3a3330, f = o.floor, sx0 = .38 * o.w / 1.5, roof = o.roof || 9, hb = Math.max(.45, Math.min(.86, roof - f - .14));
   const top = o.top || f + .44; bx(Mt, o.w, .04, o.dash - o.back + .2, IN, 0, f, (o.dash + o.back) / 2); bx(Mt, o.w, .2, .3, IN, 0, top - .1, o.dash); bx(Mt, o.w, top - f, .04, IN, 0, (top + f) / 2, o.dash + .17);
@@ -1768,6 +1779,8 @@ if (CARS[1] && CARS[1].name === 'Drifter') { CARS[1].ap = true; CARS[1].desc = '
 let CAR = CARS[0], car = null, wheels = [], WL = [], WR = .48, WHEELBASE = 2.6, TRACK = 1.8;
 const glowTex = (function () { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
   g.addColorStop(0, 'rgba(255,246,220,1)'); g.addColorStop(.25, 'rgba(255,220,150,.55)'); g.addColorStop(1, 'rgba(255,200,120,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+const tailGlowMat = new THREE.SpriteMaterial({ map: glowTex, color: 0xff2414, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0, fog: false });
+const TAILS = { mule: [.8, .98, -1.96, .5], pick: [.8, .95, -2.49, .55], f126: [.5, .72, -1.56, .42], r5: [.62, .86, -1.72, .45] };
 const glowMat = new THREE.SpriteMaterial({ map: glowTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0, fog: false });
 const headlight = new THREE.SpotLight(0xfff0c0, 0, 85, .52, .5, 1.2);
 function buildCar(def, paint) {
@@ -1787,6 +1800,7 @@ function buildCar(def, paint) {
   if (!def.fine) for (let i = 0; i < 16; i++) { const a = i / 16 * 6.283; Wp.push(bake(new THREE.BoxGeometry(.17, .07, .12), 0x161718, M(i % 2 ? .085 : -.085, Math.cos(a) * (WR - .02), Math.sin(a) * (WR - .02), a), o0)); }
   if (!def.fine) for (let i = 0; i < 5; i++) { const a = i / 5 * 6.283; for (const sx of [.18, -.18]) Wp.push(bake(new THREE.BoxGeometry(.02, .05, .05), DARK, M(sx, Math.cos(a) * WR * .36, Math.sin(a) * WR * .36, a), o0)); }
   const wg = merge(Wp); wheels = [];
+  { g.updateMatrixWorld(true); rearZU.value = new THREE.Box3().setFromObject(g).min.z; const tl = TAILS[def.vm]; if (tl) for (const sx of [1, -1]) { const s = new THREE.Sprite(tailGlowMat); s.position.set(sx * tl[0], tl[1], tl[2]); s.scale.setScalar(tl[3]); g.add(s); } }
   for (const [lx, lz] of WL) { const piv = new THREE.Group(); piv.position.set(lx, WR, lz); const w = def.wheelMesh ? def.wheelMesh(lx) : new THREE.Mesh(wg, wheelMat); w.userData.own = !def.wheelMesh; if (def.wsx) w.scale.x = def.wsx; w.castShadow = true; piv.add(w); g.add(piv); wheels.push({ piv, w }); }
   if (info.spare) { const sp = new THREE.Mesh(wg, wheelMat); sp.position.set(info.spare[0], info.spare[1], info.spare[2]); sp.rotation.set(info.spare[3], info.spare[4], info.spare[5]); sp.scale.setScalar(.94); sp.castShadow = true; g.add(sp); }
   for (const sx of [1, -1]) { const s = new THREE.Sprite(glowMat); s.position.set(sx * def.lamp[0], def.lamp[1], def.lamp[2] + .1); s.scale.setScalar(1.5); g.add(s); }
@@ -1803,7 +1817,7 @@ const DN = 170, dustPos = new Float32Array(DN * 3), dustCol = new Float32Array(D
 for (let i = 0; i < DN; i++) dustPos[i * 3 + 1] = -100;
 const dustG = new THREE.BufferGeometry(); dustG.setAttribute('position', new THREE.BufferAttribute(dustPos, 3)); dustG.setAttribute('color', new THREE.BufferAttribute(dustCol, 3));
 const dustTex = (function () { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'), g = x.createRadialGradient(16, 16, 0, 16, 16, 16);
-  g.addColorStop(0, 'rgba(255,255,255,.9)'); g.addColorStop(.6, 'rgba(255,255,255,.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })();
+  g.addColorStop(0, 'rgba(255,255,255,.9)'); g.addColorStop(.6, 'rgba(255,255,255,.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 32, 32); const t = new THREE.CanvasTexture(c); t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; t.premultiplyAlpha = false; return t; })();
 const dust = new THREE.Points(dustG, new THREE.PointsMaterial({ size: 1.4, map: dustTex, vertexColors: true, transparent: true, opacity: .6, depthWrite: false }));
 dust.frustumCulled = false; scene.add(dust);
 const pc = K(0);
@@ -2475,8 +2489,9 @@ function roadY(x, z) { if (!highway || gridAt(AS, x, z) <= .5) return -1e9; cons
   const at = i => { const e = hwE[i], t = ((x - e[0]) * (e[3] - e[0]) + (z - e[2]) * (e[5] - e[2])) / 81; return t < -.03 || t > 1.03 ? -1e9 : e[1] + (e[4] - e[1]) * Math.min(1, Math.max(0, t)); };
   const j = Math.min(n - 1, Math.max(0, bi + ((x - P[bi].x) * (P[Math.min(n - 1, bi + 1)].x - P[bi].x) + (z - P[bi].z) * (P[Math.min(n - 1, bi + 1)].z - P[bi].z) > 0 ? 1 : -1))), ya = at(bi), yb = at(j); if (ya < -1e8) return -1e9; if (j === bi || yb < -1e8) return ya;
   const dx = P[j].x - P[bi].x, dz = P[j].z - P[bi].z, u = Math.min(1, Math.max(0, ((x - P[bi].x) * dx + (z - P[bi].z) * dz) / (dx * dx + dz * dz || 1))); return ya + (yb - ya) * u; }
-const carH = (x, z) => { const h = heightAt(x, z), d = bridge ? onDeck(x, z) : -1e9, r = roadY(x, z); return Math.max(h, d, r); };
-function carSurf() { if (bridge && onDeck(S.x, S.z) > -1e8) return 8; return gridAt(AS, S.x, S.z) > .5 ? 7 : surfaceAt(S.x, S.z); }
+const onRoof = (x, z, y) => cave && !cave.swapped && x > cave.bb[0] && x < cave.bb[1] && z > cave.bb[2] && z < cave.bb[3] && gridAt(caveMask, x, z) > .5 && y > ceilAt(x, z) - 1.5;
+const carH = (x, z) => { const h = onRoof(x, z, S.y) ? gridAt(cave.H0, x, z) : heightAt(x, z), d = bridge ? onDeck(x, z) : -1e9, r = roadY(x, z); return Math.max(h, d, r); };
+function carSurf() { if (bridge && onDeck(S.x, S.z) > -1e8) return 8; if (onRoof(S.x, S.z, S.y)) return 0; return gridAt(AS, S.x, S.z) > .5 ? 7 : surfaceAt(S.x, S.z); }
 function step(dt) { if (vista) { S.v = 0; return; } apFrame(dt);          // parked while you look around
   const sY = Math.sin(S.yaw), cY = Math.cos(S.yaw);
   for (let i = 0; i < 4; i++) { const lx = WL[i][0], lz = WL[i][1]; wh[i] = carH(S.x + sY * lz + cY * lx, S.z + cY * lz - sY * lx); }
@@ -2542,7 +2557,7 @@ function tick(now) {
   wheels.forEach((w, i) => { const lx = WL[i][0], lz = WL[i][1];
     w.piv.position.y = WR + clamp(wh[i] - (S.y + lz * tp + lx * tr), -.3, .32);
     w.piv.rotation.y = i < 2 ? -S.steer : 0; w.w.rotation.x += (S.spin ? Math.sign(gasNow - brkNow || 1) * 14 : S.v / WR) * dt; });
-  brakeMat.color.setHex(S.braking && S.started ? 0xff3a2a : E.lights > .5 ? 0xa02a22 : 0x7a1f1a);
+  brakeMat.color.setHex(S.braking && S.started ? 0xff3a2a : E.lights > .5 ? 0xa02a22 : 0x7a1f1a); carInvU.value.copy(car.matrixWorld).invert(); tailGlowMat.opacity = Math.min(1, brakeU.value * .9); brakeU.value += ((S.braking && S.started && !vista ? 1.15 : E.lights > .5 ? .35 : 0) - brakeU.value) * Math.min(1, dt * 14);
   if (blob.visible) { blob.position.set(S.x, S.ground + .12, S.z); blob.rotation.set(-Math.PI / 2 - S.pitch, S.yaw, 0); }
   if (S.winch) { const p = rope.geometry.attributes.position; v3.set(0, WR + .45, WHEELBASE / 2 + .95).applyMatrix4(car.matrixWorld);
     const dx = S.x - S.winch.x, dz = S.z - S.winch.z, dl = Math.hypot(dx, dz) || 1;
@@ -2634,7 +2649,7 @@ const dof = { on: true, ok: true, w: 0, h: 0 };
 (function () { const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2)), sc = new THREE.Scene(); sc.add(quad); quad.frustumCulled = false;
   const vs = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }', mk = (fs, u) => new THREE.ShaderMaterial({ uniforms: u, vertexShader: vs, fragmentShader: fs, depthTest: false, depthWrite: false, toneMapped: false });
   const blur = mk('uniform sampler2D t; uniform vec2 d; varying vec2 vUv; void main(){ vec3 c = texture2D(t, vUv).rgb * 0.227; c += (texture2D(t, vUv + d * 1.38).rgb + texture2D(t, vUv - d * 1.38).rgb) * 0.316; c += (texture2D(t, vUv + d * 3.23).rgb + texture2D(t, vUv - d * 3.23).rgb) * 0.07; gl_FragColor = vec4(c, 1.0); }', { t: { value: null }, d: { value: new THREE.Vector2() } });
-  const comp = mk('uniform sampler2D t; uniform sampler2D b; uniform sampler2D z; uniform vec4 f; varying vec2 vUv; void main(){ float d = texture2D(z, vUv).x, lin = f.x * f.y / (f.y - d * (f.y - f.x)); float k = d > 0.99995 ? 0.6 : smoothstep(f.z, f.w, lin); gl_FragColor = vec4(mix(texture2D(t, vUv).rgb, texture2D(b, vUv).rgb, k * 0.92), 1.0); }', { t: { value: null }, b: { value: null }, z: { value: null }, f: { value: new THREE.Vector4(.5, 4600, 70, 520) } }); dof.f = comp.uniforms.f.value;
+  const comp = mk('uniform sampler2D t; uniform sampler2D b; uniform sampler2D z; uniform vec4 f; varying vec2 vUv; void main(){ float d = texture2D(z, vUv).x, lin = f.x * f.y / (f.y - d * (f.y - f.x)); float k = d > 0.99995 ? 0.35 : smoothstep(f.z, f.w, lin); gl_FragColor = vec4(mix(texture2D(t, vUv).rgb, texture2D(b, vUv).rgb, k * 0.55), 1.0); }', { t: { value: null }, b: { value: null }, z: { value: null }, f: { value: new THREE.Vector4(.5, 4600, 140, 900) } }); dof.f = comp.uniforms.f.value;
   let rt = null, b1 = null, b2 = null;
   const size = () => { const v = renderer.getDrawingBufferSize(new THREE.Vector2()), w = v.x, h = v.y; if (w === dof.w && h === dof.h) return; dof.w = w; dof.h = h; for (const r of [rt, b1, b2]) if (r) r.dispose();
     rt = renderer.capabilities.isWebGL2 ? new THREE.WebGLMultisampleRenderTarget(w, h) : new THREE.WebGLRenderTarget(w, h); rt.depthTexture = new THREE.DepthTexture(w, h); rt.depthTexture.type = THREE.UnsignedIntType; rt.depthTexture.minFilter = rt.depthTexture.magFilter = THREE.NearestFilter;
@@ -2642,7 +2657,7 @@ const dof = { on: true, ok: true, w: 0, h: 0 };
   const pass = (m, target) => { quad.material = m; renderer.setRenderTarget(target); renderer.render(sc, cam); };
   dof.draw = () => { if (!dof.on || !dof.ok || quality < 2 || !(renderer.capabilities.isWebGL2 || renderer.extensions.get('WEBGL_depth_texture'))) { renderer.render(scene, camera); return; } size();
     renderer.setRenderTarget(rt); renderer.render(scene, camera); const sh = renderer.shadowMap.autoUpdate; renderer.shadowMap.autoUpdate = false;
-    const r = 1.6 * dof.h / 720; blur.uniforms.t.value = rt.texture; blur.uniforms.d.value.set(r / dof.w, 0); pass(blur, b1); blur.uniforms.t.value = b1.texture; blur.uniforms.d.value.set(0, r / dof.h); pass(blur, b2);
+    const r = 1.15 * dof.h / 720; blur.uniforms.t.value = rt.texture; blur.uniforms.d.value.set(r / dof.w, 0); pass(blur, b1); blur.uniforms.t.value = b1.texture; blur.uniforms.d.value.set(0, r / dof.h); pass(blur, b2);
     comp.uniforms.t.value = rt.texture; comp.uniforms.b.value = b2.texture; comp.uniforms.z.value = rt.depthTexture; comp.uniforms.f.value.x = camera.near; comp.uniforms.f.value.y = camera.far; pass(comp, null); renderer.shadowMap.autoUpdate = sh; }; })();
 { try { dof.on = localStorage.getItem('slowtrail-dof') !== '0'; } catch (e) {} const show = () => { $('bDof').textContent = 'Distance focus: ' + (dof.on ? 'On' : 'Off'); }; show();
   $('bDof').addEventListener('click', () => { dof.on = !dof.on; try { localStorage.setItem('slowtrail-dof', dof.on ? '1' : '0'); } catch (e) {} show(); }); }
@@ -2929,7 +2944,7 @@ refreshMenu(); autoDest();
 // the Exit button only exists inside the Android app, where there is something to close
 if (window.NativeApp && window.NativeApp.exit) $('bExit').addEventListener('click', () => { save(); window.NativeApp.exit(); }); else $('bExit').style.display = 'none';
 try { initAudio(); } catch (e) {}
-window.__game = { apDbg: () => ({ AP, routePts, snapRoad, roadAt }), world: scene, carObj: () => car, three: THREE, dof, pickPaint, PAINTS, roadY, extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
+window.__game = { detailTex, apDbg: () => ({ AP, routePts, snapRoad, roadAt }), world: scene, carObj: () => car, three: THREE, dof, pickPaint, PAINTS, roadY, extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
 requestAnimationFrame(frame);
 })();
 </script>
