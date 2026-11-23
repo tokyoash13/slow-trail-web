@@ -1990,23 +1990,24 @@ function applyEnv(dt) {
 
 /* ---------- graphics quality ---------- */
 let quality = 2, autoQ = true, soundOn = true;
-function setQuality(q) { quality = q; BBU.value = q === 2 ? 100 : q === 1 ? 80 : 65; const dpr = window.devicePixelRatio || 1;
-  pixelRatio = q === 2 ? Math.min(dpr, 2) : q === 1 ? Math.min(dpr, 1.25) : 1;
+let hiFast = false;
+function setQuality(q, fast) { quality = q; hiFast = q === 2 && !!fast; BBU.value = q === 2 ? 100 : q === 1 ? 80 : 65; const dpr = window.devicePixelRatio || 1;
+  pixelRatio = q === 2 ? Math.min(dpr, hiFast ? 1.25 : 2) : q === 1 ? Math.min(dpr, 1.25) : 1;
   const size = q === 2 ? 2048 : 1024; if (sun.shadow.mapSize.x !== size) { sun.shadow.mapSize.set(size, size); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   if (groundMat) { const bm = q > 0 ? detailTex : null; if (groundMat.bumpMap !== bm) { groundMat.bumpMap = bm; groundMat.needsUpdate = true; } }
-  blob.visible = q === 0; layout(); $('bGfx').textContent = 'Graphics: ' + (autoQ ? 'Auto' : ['Low', 'Medium', 'High'][q]); }
+  blob.visible = q === 0; layout(); $('bGfx').textContent = 'Graphics: ' + (autoQ ? 'Auto' : hiFast ? 'High (fast)' : ['Low', 'Medium', 'High'][q]); }
 
 /* ---------- state, save ---------- */
 const S = { x: 0, z: 0, yaw: 0, v: 0, vlat: 0, steer: 0, pitch: 0, roll: 0, y: 0, vy: 0, tPitch: 0, tRoll: 0, ground: 0, acc: 0,
   low: false, winch: null, lastCamp: 0, surf: 0, spin: false, flooded: false, started: false, braking: false, wade: 0 };
 const KEY = 'slowtrail-v5', sel = { car: 0, paint: 0 }, vol = { mus: .7, env: .7, fx: .7 };
-function save() { try { localStorage.setItem(KEY, JSON.stringify({ c: camps.map(c => c.found), s: stamps.map(s => s.got), g: sights.map(s => s.found), l: S.lastCamp, car: sel.car, paint: sel.paint, time: timeName, season, q: autoQ ? -1 : quality, vol })); } catch (e) {} }
+function save() { try { localStorage.setItem(KEY, JSON.stringify({ c: camps.map(c => c.found), s: stamps.map(s => s.got), g: sights.map(s => s.found), l: S.lastCamp, car: sel.car, paint: sel.paint, time: timeName, season, q: autoQ ? -1 : hiFast ? 3 : quality, vol })); } catch (e) {} }
 (function load() { try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!d) return;
   d.c.forEach((f, i) => { if (camps[i]) camps[i].found = f || i === 0; }); d.s.forEach((g, i) => { if (stamps[i] && g) { stamps[i].got = true; stamps[i].mesh.visible = false; } });
   if (camps[d.l]) S.lastCamp = d.l; if (CARS[d.car]) sel.car = d.car; if (PAINTS[d.paint] !== undefined) sel.paint = d.paint; if (ENV[d.time]) timeName = d.time; if (d.season >= 0 && d.season <= 3) savedSeason = d.season;
   if (d.g) d.g.forEach((f, i) => { if (sights[i]) sights[i].found = !!f; });
-  if (d.q >= 0 && d.q <= 2) { autoQ = false; quality = d.q; } if (d.vol) { for (const k of ['mus', 'env', 'fx']) if (typeof d.vol[k] === 'number') vol[k] = clamp(d.vol[k], 0, 1); } else { if (d.snd === false) vol.env = vol.fx = 0; if (d.mus === false) vol.mus = 0; } } catch (e) {} })();
-setQuality(quality);
+  if (d.q >= 0 && d.q <= 3) { autoQ = false; quality = Math.min(d.q, 2); hiFast = d.q === 3; } if (d.vol) { for (const k of ['mus', 'env', 'fx']) if (typeof d.vol[k] === 'number') vol[k] = clamp(d.vol[k], 0, 1); } else { if (d.snd === false) vol.env = vol.fx = 0; if (d.mus === false) vol.mus = 0; } } catch (e) {} })();
+setQuality(quality, hiFast);
 buildCar(CARS[sel.car], PAINTS[sel.paint]);
 let camYaw = 0, orbit = 0, orbitPitch = 0, camMode = 0, menuA = 2.5, clock = 0;
 function placeAtCamp(i) { const c = camps[i]; S.x = c.x - 6; S.z = c.z + 4; S.yaw = Math.atan2(c.x - S.x, c.z - S.z) + 1.6; S.v = S.vlat = 0; S.winch = null; S.y = heightAt(S.x, S.z); S.vy = 0; camYaw = S.yaw;
@@ -2207,7 +2208,7 @@ function nextCam() { camMode = (camMode + 1) % 4; play('click'); toast(['Chase v
 function toggleMap() { if (mapOpen) closeMap(); else openMap(); }
 function horn() { play('horn'); hornAt = clock; }
 function nextTime(d) { pickTime(TIMES[(TIMES.indexOf(timeName) + (d || 1) + 4) % 4]); if (S.started) toast(TIME_LABEL[timeName], 1.4); }
-function cycleGfx() { if (autoQ) { autoQ = false; setQuality(2); } else if (quality > 0) setQuality(quality - 1); else { autoQ = true; setQuality(2); } save(); play('tick'); }
+function cycleGfx() { if (autoQ) { autoQ = false; setQuality(2); } else if (quality === 2 && !hiFast) setQuality(2, true); else if (quality > 0) setQuality(quality - 1); else { autoQ = true; setQuality(2); } save(); play('tick'); }
 tap('bLow', toggleLow); tap('bWinch', toggleWinch); tap('bCam', nextCam); tap('bReset', toCamp); tap('bMenu', openMenu); $('mapClose').addEventListener('click', closeMap);
 $('bAuto').addEventListener('click', e => { e.preventDefault(); apToggle(); });
 $('bHorn').addEventListener('pointerdown', e => { e.preventDefault(); usingTouch(e); horn(); $('bHorn').classList.add('down'); setTimeout(() => $('bHorn').classList.remove('down'), 180); });
@@ -2593,7 +2594,7 @@ function step(dt) { if (vista) { S.v = 0; return; } apFrame(dt);          // par
 let cullT = 0, last = performance.now(), hudT = 0, fpsN = 0, fpsT = 0, warm = 0, visP = 0, visR = 0;
 const v3 = new THREE.Vector3();
 let fpsOn = false, fpsCnt = 0, fpsT0 = 0;
-function fpsFrame(now) { if (!fpsOn) return; fpsCnt++; if (now - fpsT0 >= 1000) { const el = document.getElementById('fpsBox'); if (el) el.textContent = Math.round(fpsCnt * 1000 / (now - fpsT0)) + ' fps · ' + ['low', 'medium', 'high'][quality] + ' graphics'; fpsCnt = 0; fpsT0 = now; } }
+function fpsFrame(now) { if (!fpsOn) return; fpsCnt++; if (now - fpsT0 >= 1000) { const el = document.getElementById('fpsBox'); if (el) el.textContent = Math.round(fpsCnt * 1000 / (now - fpsT0)) + ' fps · ' + (hiFast ? 'high (fast)' : ['low', 'medium', 'high'][quality]) + ' graphics'; fpsCnt = 0; fpsT0 = now; } }
 function tick(now) { fpsFrame(now);
   const raw = (now - last) / 1000; last = now; const dt = Math.min(.05, raw); clock += dt; timeU.value = clock;
   pollPad(dt); step(dt / 2); step(dt / 2); applyEnv(dt);
