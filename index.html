@@ -39,9 +39,17 @@
   .btn.down { background: rgba(255,255,255,.4); border-color: #fff; }
   .btn.on { background: rgba(240,150,70,.8); border-color: #fff; }
   .btn:disabled { opacity: .35; }
+  #loadScr { position: fixed; inset: 0; z-index: 99; display: flex; align-items: center; justify-content: center; background: linear-gradient(#e7a07a, #6d4a63 70%, #3a2838); color: #fff; text-align: center; transition: opacity .6s; }
+  #loadScr h1 { margin: 0; font-size: 34px; letter-spacing: .22em; } #loadScr p { margin: 10px 0 16px; font-size: 13px; letter-spacing: .18em; opacity: .85; }
+  #loadScr i { display: block; width: 220px; height: 5px; margin: 0 auto; border-radius: 3px; background: rgba(255,255,255,.22); overflow: hidden; } #loadScr b { display: block; width: 40%; height: 100%; border-radius: 3px; background: #f0b050; animation: ldbar 1.3s ease-in-out infinite; }
+  @keyframes ldbar { from { transform: translateX(-110%); } to { transform: translateX(260%); } } #loadScr.gone { opacity: 0; pointer-events: none; }
   .pedal { width: 22vmin; height: 27vmin; bottom: 14px; font-size: 3.6vmin; max-width: 150px; max-height: 180px; }
   #bLeft { left: 16px; } #bRight { left: calc(min(22vmin,150px) + 28px); }
-  #bGas { right: 16px; } #bBrake { right: calc(min(22vmin,150px) + 28px); height: 21vmin; max-height: 140px; }
+  .pedal { border-radius: 10px 10px 16px 16px; border: 2px solid rgba(205,210,220,.75); align-items: flex-end; padding-bottom: 7px; font-size: min(2.5vmin, 12px); letter-spacing: .14em; color: rgba(255,255,255,.92); box-shadow: inset 0 2px 0 rgba(255,255,255,.28), inset 0 -3px 0 rgba(0,0,0,.35), 0 5px 0 rgba(10,10,14,.45); transition: transform .06s, box-shadow .06s; }
+  #bGas { right: 16px; width: min(15vmin, 104px); height: min(30vmin, 196px); max-width: none; max-height: none; background: repeating-linear-gradient(90deg, rgba(28,29,34,.72) 0 7px, rgba(70,72,80,.72) 7px 10px); }
+  #bBrake { right: calc(min(15vmin, 104px) + 30px); width: min(23vmin, 150px); height: min(19vmin, 124px); max-width: none; max-height: none; background: repeating-linear-gradient(0deg, rgba(28,29,34,.72) 0 7px, rgba(70,72,80,.72) 7px 10px); }
+  #bRev { right: calc(min(15vmin, 104px) + min(23vmin, 150px) + 44px); width: min(13vmin, 86px); height: min(13vmin, 86px); max-width: none; max-height: none; border-radius: 14px; background: repeating-linear-gradient(0deg, rgba(28,29,34,.72) 0 6px, rgba(70,72,80,.72) 6px 9px); }
+  .pedal.down { transform: translateY(4px) scale(.97); box-shadow: inset 0 2px 0 rgba(255,255,255,.2), inset 0 -2px 0 rgba(0,0,0,.35), 0 1px 0 rgba(10,10,14,.45); border-color: #fff; filter: brightness(1.45); }
   #bLeft, #bRight { font-size: 7vmin; height: 22vmin; max-height: 150px; }
   .small { width: 60px; height: 36px; font-size: 11px; border-radius: 11px; }
   #bLow { top: 10px; right: 140px; } #bWinch { top: 10px; right: 76px; } #bCam { top: 10px; right: 12px; }
@@ -78,7 +86,7 @@
   #wxBox { display: none; } #wxBox.open { display: block; } #bWxS { display: none; } #bWxS.show { display: inline-block; }
   #topbar .btn, #bHorn { width: 60px; height: 34px; font-size: 10.5px; letter-spacing: .07em; border-radius: 17px; border: 1.5px solid rgba(255,255,255,.5); background: rgba(34,24,32,.42); }
   #topbar .btn { position: static; } #topbar .btn.on { background: rgba(240,150,70,.85); border-color: #fff; } #topbar .btn.down, #bHorn.down { background: rgba(255,255,255,.4); }
-  #bHorn { top: auto; right: 16px; bottom: calc(min(27vmin, 180px) + 22px); width: min(22vmin, 150px); height: 32px; } #root.pad #bHorn { display: none; }
+  #bHorn { top: auto; right: 16px; bottom: calc(min(30vmin, 196px) + 26px); width: min(15vmin, 104px); height: 32px; } #root.pad #bHorn { display: none; }
   #miniTag { left: 12px; top: calc(90px + min(27vmin, 132px) + 4px); width: min(27vmin, 132px); text-align: center; font-size: 9px; letter-spacing: .16em; opacity: .8; }
   #mapClose { position: absolute; top: 10px; right: 12px; padding: 9px 18px; font-size: 14px; font-weight: bold; color: #2a1a20; background: #f0b050; border-color: #fff; border-radius: 20px; z-index: 2; }
   #mapHint { position: absolute; top: 14px; left: 16px; font-size: 12px; opacity: .85; letter-spacing: .04em; }
@@ -120,6 +128,7 @@
   #swatches button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255,255,255,.45); padding: 0; pointer-events: auto; }
   #swatches button.sel { border-color: #fff; box-shadow: 0 0 0 2px #f0b050; }
   .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .chips.c3 { grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 0 0 4px; } .c3 .mb { padding: 7px 0; font-size: 12px; }
   .chips.c4 { grid-template-columns: repeat(4, 1fr); gap: 4px; } .c4 .mb { padding: 7px 0; font-size: 11px; }
   #start { width: 100%; margin-top: 9px; padding: 11px 0; font-size: 17px; font-weight: bold; color: #2a1a20; background: #f0b050; border: 0; border-radius: 22px; }
   #flip { display: none; width: 100%; margin-top: 6px; } #root.rot #flip { display: block; }
@@ -135,6 +144,7 @@
 </style>
 </head>
 <body>
+<div id="loadScr"><div><h1>SLOW TRAIL</h1><p>Loading the trail…</p><i><b></b></i></div></div>
 <div id="root" class="inmenu">
 <canvas id="c"></canvas>
 
@@ -147,7 +157,8 @@
 
 <div id="steerHint" class="hud">◀&nbsp; slide anywhere here to steer &nbsp;▶</div>
 <div id="stick"><i></i></div>
-<button class="btn pedal" id="bBrake">BRAKE<br>REV</button>
+<button class="btn pedal" id="bRev" aria-label="Reverse">REV</button>
+<button class="btn pedal" id="bBrake" aria-label="Brake">BRAKE</button>
 <button class="btn pedal" id="bGas">GAS</button>
 <div id="topbar"><button class="btn small" id="bAuto" style="display:none">AUTO</button><button class="btn small" id="bLow">4L</button><button class="btn small" id="bWinch" disabled>WINCH</button><button class="btn small" id="bCam">VIEW</button><button class="btn small" id="bReset">CAMP</button><button class="btn small" id="bMenu">MENU</button></div>
 <button class="btn" id="bHorn" aria-label="Horn">HORN</button>
@@ -165,18 +176,21 @@
     <div class="lab">PAINT</div><div id="swatches"></div>
   </div>
   <div class="panel" id="mOpt">
-    <div class="lab">TIME OF DAY</div><div class="chips c4" id="times"></div>
+    <div class="chips c3" id="optTabs"><button class="mb sel" data-t="0">World</button><button class="mb" data-t="1">Display</button><button class="mb" data-t="2">Sound</button></div>
+    <div class="otab" id="ot0"><div class="lab">TIME OF DAY</div><div class="chips c4" id="times"></div>
     <div class="lab">SEASON</div><div class="chips c4" id="seasons"></div>
-    <div class="lab">OPTIONS</div><div class="chips"><button class="mb" id="bGfx">Auto graphics: On</button><button class="mb" id="bDof">Distance focus: On</button><button class="mb" id="bFps">FPS: Off</button><button class="mb" id="bExit">Exit game</button></div>
-    <div class="vol"><span>Graphics</span><input type="range" id="gQ" min="0" max="2" step="1" value="2" aria-label="Graphics detail: low, medium, high"><b id="gQv">High</b></div><div class="vol"><span>Resolution</span><input type="range" id="gR" min="0" max="3" step="1" value="3" aria-label="Resolution: 1x to 2x"><b id="gRv">2×</b></div>
     <div class="lab">WEATHER</div><div class="chips"><button class="mb" id="bWx">Weather: Seasonal</button><button class="mb" id="bWxS">Back to seasonal</button></div>
-    <div id="wxBox"><div class="vol"><span>Rain</span><input type="range" id="wRain" min="0" max="100" step="5" value="0" aria-label="Rain, light to heavy"></div><div class="vol"><span>Snow</span><input type="range" id="wSnow" min="0" max="100" step="5" value="0" aria-label="Snow"></div><div class="vol"><span>Wind</span><input type="range" id="wWind" min="0" max="100" step="5" value="30" aria-label="Wind"></div><div class="vol"><span>Fog</span><input type="range" id="wFog" min="0" max="100" step="5" value="0" aria-label="Fog"></div><div class="vol"><span>Thunder</span><input type="range" id="wThun" min="0" max="100" step="5" value="0" aria-label="Thunder and lightning"></div></div>
-    <div class="lab">VOLUME</div>
+    <div id="wxBox"><div class="vol"><span>Rain</span><input type="range" id="wRain" min="0" max="100" step="5" value="0" aria-label="Rain, light to heavy"></div><div class="vol"><span>Snow</span><input type="range" id="wSnow" min="0" max="100" step="5" value="0" aria-label="Snow"></div><div class="vol"><span>Wind</span><input type="range" id="wWind" min="0" max="100" step="5" value="30" aria-label="Wind"></div><div class="vol"><span>Fog</span><input type="range" id="wFog" min="0" max="100" step="5" value="0" aria-label="Fog"></div><div class="vol"><span>Thunder</span><input type="range" id="wThun" min="0" max="100" step="5" value="0" aria-label="Thunder and lightning"></div></div></div>
+    <div class="otab" id="ot1" style="display:none"><div class="lab">GRAPHICS</div><div class="chips"><button class="mb" id="bGfx">Auto graphics: On</button><button class="mb" id="bFps">FPS: Off</button></div>
+    <div class="vol"><span>Graphics</span><input type="range" id="gQ" min="0" max="2" step="1" value="2" aria-label="Graphics detail: low, medium, high"><b id="gQv">High</b></div><div class="vol"><span>Resolution</span><input type="range" id="gR" min="0" max="3" step="1" value="3" aria-label="Resolution: 1x to 2x"><b id="gRv">2×</b></div>
+    <div class="lab">CAMERA</div><div class="chips"><button class="mb" id="bDof">Distance focus: On</button></div></div>
+    
+    <div class="otab" id="ot2" style="display:none"><div class="lab">VOLUME</div>
     <div class="vol"><span>Music</span><input type="range" id="vMus" min="0" max="100" step="5" value="70" aria-label="Music volume"></div>
     <div class="vol"><span>Environment</span><input type="range" id="vEnv" min="0" max="100" step="5" value="70" aria-label="Environment volume"></div>
-    <div class="vol"><span>Effects</span><input type="range" id="vFx" min="0" max="100" step="5" value="70" aria-label="Effects volume"></div>
+    <div class="vol"><span>Effects</span><input type="range" id="vFx" min="0" max="100" step="5" value="70" aria-label="Effects volume"></div></div>
     <button class="mb" id="start">Start driving</button>
-    <button class="mb" id="flip">Flip screen</button>
+    <div class="chips"><button class="mb" id="flip">Flip screen</button><button class="mb" id="bExit">Exit game</button></div>
   </div>
   <div id="mHelp">Slide on the left to steer, pedals on the right · or controller: RT gas, LT brake, sticks steer / look, X winch, LB low gear · <span id="padstat">press any controller button to connect</span></div>
 </div>
@@ -194,6 +208,7 @@
 <script src="cars4.js"></script>
 <script src="cars5.js"></script>
 <script src="cars6.js"></script>
+<script src="cars7.js"></script>
 <script>
 (function () {
 'use strict';
@@ -2081,7 +2096,7 @@ function apToggle(on, quiet) { if (on === undefined) on = !AP.on; if (on && !(CA
   if (!quiet) { toast(on ? 'Autopilot on: following the blue arrows. Touch any control to take over' : 'Autopilot off', 2.6); play('click'); } }
 function apFrame(dt) { if (!AP.on) return;
   if (!S.started || vista || S.flooded || !CAR.ap) { apToggle(false, true); return; }
-  if (inp.gas || inp.brake || inp.left || inp.right || Math.abs(inp.sx) > .05 || pad.gas > .15 || pad.brake > .15 || Math.abs(pad.steer) > .2) { apToggle(false); return; }
+  if (inp.gas || inp.brake || inp.rev || inp.left || inp.right || Math.abs(inp.sx) > .05 || pad.gas > .15 || pad.brake > .15 || Math.abs(pad.steer) > .2) { apToggle(false); return; }
   const sp = Math.abs(S.v), tgt = AP.target, q = tgt ? destPoint(tgt) : null, dd = q ? Math.hypot(q.x - S.x, q.z - S.z) : 0;
   if (!tgt || dest !== tgt || tgt.found || dd < 7 || routePts.length < 2) { AP.gas = 0; AP.steer = 0; AP.brake = 1; if (sp < .4) { apToggle(false, true); toast(tgt ? 'Autopilot: arrived at ' + tgt.name : 'Autopilot off', 3); play('click'); } return; }
   if (AP.rev > 0) { AP.rev -= dt; AP.gas = 0; AP.brake = .7; AP.steer = -AP.steer0; return; }
@@ -2193,7 +2208,7 @@ function hold(id, key) { const b = $(id);
   const on = e => { e.preventDefault(); inp[key] = 1; b.classList.add('down'); usingTouch(e); try { b.setPointerCapture(e.pointerId); } catch (_) {} };
   const off = () => { inp[key] = 0; b.classList.remove('down'); };
   b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('lostpointercapture', off); }
-hold('bGas', 'gas'); hold('bBrake', 'brake');
+hold('bGas', 'gas'); hold('bBrake', 'brake'); hold('bRev', 'rev');
 // steering: touch anywhere on the left half and slide. The pad appears under the thumb and follows it if you slide past its edge.
 const steer = { id: null, ax: 0, x: 0, y: 0 }, STEER_R = 62;
 const localXY = e => rotated === 1 ? [e.clientY, window.innerWidth - e.clientX] : rotated === -1 ? [window.innerHeight - e.clientY, e.clientX] : [e.clientX, e.clientY];
@@ -2397,6 +2412,7 @@ const sfx = {
   thunder(dd) { const v = .55 / (.55 + dd); hit('lowpass', 2000 - dd * 1000, .5, .3 + dd * .3, v * .45, { bus: A.amb, rev: .5 }); hit('lowpass', 260, .7, 3.6 + dd * 2, v, { bus: A.amb, a: .06 + dd * .25, rev: .8, f1: 60 }); hit('lowpass', 130, .8, 5.5, v * .75, { bus: A.amb, a: .4, at: .25, rev: .8, f1: 40 }); },
   thud(v) { if (thudCool > 0) return; thudCool = .3; tone('sine', 72, 38, .3, Math.min(.36, .14 + v * .03)); hit('lowpass', 320, .7, .2, .2); hit('lowpass', 900, .7, .06, .07, { at: .06 }); },
   bump(v) { tone('sine', 60, 40, .16, v); hit('lowpass', 260, .7, .1, v * .7); },
+  brake(v, hard) { hit('lowpass', 180, .8, .12, v * .8); if (hard) { tone('sine', 2650, 2480, .5, v * .22, { a: .05, rev: .12 }); tone('sine', 3980, 3720, .42, v * .08, { a: .06 }); hit('bandpass', 2400, 3, .32, v * .5, { a: .02 }); } else hit('bandpass', 950, .9, .45, v * 1.1, { a: .02, f1: 520 }); },
   splash(v) { hit('bandpass', 900, .5, .65, v, { f1: 380, a: .02 }); hit('bandpass', 1700, .6, .3, v * .3, { a: .02 }); },
   stamp() { bell(81, 0, .09); bell(88, .12, .09); },
   camp() { [76, 80, 83, 88].forEach((m, i) => bell(m, i * .13, .09)); },
@@ -2416,7 +2432,7 @@ function owl() { const o = { pan: Math.random() * 1.4 - .7, bus: A.amb, rev: .5,
 
 /* tyres, skids, water, winch, suspension */
 const TYRE = [[700, .045], [520, .06], [1000, .07], [300, .085], [1400, .04], [850, .075], [1000, .08], [620, .03], [380, .085]];
-let prevWade = 0, prevVy = 0;
+let prevWade = 0, prevVy = 0, prevBrk = false;
 function vehicleFrame(dt, gas, spd) { const L = A.L, t = A.ctx.currentTime, live = S.started, sp = TYRE[S.surf] || TYRE[0];
   aFreq(L.tyre.f.frequency, sp[0], .25); aSet(L.tyre.g.gain, live && S.wade < .3 ? sp[1] * Math.min(1, spd / 14) : 0, .1);
   const slide = Math.min(1, Math.abs(S.vlat) * .25) + (S.spin ? .7 : 0) + (S.braking && spd > 7 ? .35 : 0);
@@ -2424,6 +2440,7 @@ function vehicleFrame(dt, gas, spd) { const L = A.L, t = A.ctx.currentTime, live
   aSet(L.wade.g.gain, live ? Math.min(.15, S.wade * spd * .03) : 0, .1);
   if (live && S.wade > .05 && prevWade <= .05 && spd > 3) sfx.splash(Math.min(.35, spd * .04)); prevWade = S.wade;
   aSet(L.winch.gain, live && S.winch && gas > .2 ? .07 : 0, .08);
+  if (live && S.braking && !prevBrk && spd > 3) sfx.brake(Math.min(.24, .06 + spd * .01), S.surf === 7 || S.surf === 8); prevBrk = S.braking;
   const dvy = Math.abs(S.vy - prevVy); if (live && dvy > 2.2 && spd > 2 && bumpCool <= 0) { sfx.bump(Math.min(.28, dvy * .05)); bumpCool = .25; } prevVy = S.vy; bumpCool -= dt; thudCool -= dt;
 }
 
@@ -2526,7 +2543,7 @@ function play(name, arg) { if (A.ctx && A.ctx.state === 'running') { try { sfx[n
 [['vMus', 'mus'], ['vEnv', 'env'], ['vFx', 'fx']].forEach(q => { const el = $(q[0]), k = q[1];
   el.addEventListener('input', () => { vol[k] = el.value / 100; applyVol(); });
   el.addEventListener('change', () => { save(); if (k === 'fx') play('click'); if (k === 'env' && A.ctx && A.ctx.state === 'running') { try { bird(); } catch (e) {} } }); });
-window.__pause = on => { aPaused = !!on; wdBad = 0; try { if (A.ctx) { if (on) A.ctx.suspend(); else A.ctx.resume(); } } catch (e) {} if (on) { inp.left = inp.right = inp.gas = inp.brake = 0; steerEnd(); } };
+window.__pause = on => { aPaused = !!on; wdBad = 0; try { if (A.ctx) { if (on) A.ctx.suspend(); else A.ctx.resume(); } } catch (e) {} if (on) { inp.left = inp.right = inp.gas = inp.brake = inp.rev = 0; steerEnd(); } };
 document.addEventListener('visibilitychange', () => window.__pause(document.hidden));
 for (const ev of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(ev, initAudio, { passive: true });
 $('start').addEventListener('click', () => {
@@ -2558,17 +2575,17 @@ function step(dt) { if (vista) { S.v = 0; return; } apFrame(dt);          // par
   const traction = mu * 9.8 * Math.cos(pitch) * .95;
   const gF = -9.8 * Math.sin(pitch), gL = 9.8 * Math.sin(roll);
   const live = !S.flooded && S.started && !vista;
-  const gas = live ? Math.max(inp.gas, pad.gas, AP.on ? AP.gas : 0) : 0, brk = live ? Math.max(inp.brake, pad.brake, AP.on ? AP.brake : 0) : 0;
+  const gas = live ? Math.max(inp.gas, pad.gas, AP.on ? AP.gas : 0) : 0, bT = live ? inp.brake : 0, rT = live ? (inp.rev || 0) : 0, bC = live ? Math.max(pad.brake, AP.on ? AP.brake : 0) : 0, brk = Math.max(bT, rT, bC), rvI = Math.max(rT, bC);
   const A = S.low ? CAR.aLo : lerp(CAR.aLo * .92, CAR.aHi * 1.15, clamp(Math.abs(S.v) / 7, 0, 1)), vmax = S.low ? 7.5 : CAR.vmax, v0 = S.v;   // high range pulls like low range from a standstill
   let want = 0, braking = 0;
   if (gas > .03) want = gas * (S.v < -.5 ? A : A * Math.max(0, 1 - S.v / vmax));
-  if (brk > .03) { if (S.v > .6) braking = brk * Math.min(17, traction * 1.85); else want = -brk * A * .8 * Math.max(0, 1 + S.v / (S.low ? 4 : 8)); }
-  S.braking = brk > .03;
+  if (brk > .03) { if (S.v > .6) braking = brk * Math.min(17, traction * 1.85); else if (rvI > .03) want = -rvI * A * .8 * Math.max(0, 1 + S.v / (S.low ? 4 : 8)); else braking = bT * Math.min(17, traction * 1.85); }
+  S.braking = (S.v > .6 && brk > .03) || bT > .03;
   const drive = clamp(want, -traction, traction);
   S.spin = Math.abs(want) > traction + .4 && Math.abs(S.v) < 4;
   S.v += (drive + gF) * dt;
   // diff lock: if the wheels can't find grip for a moment, the truck crawls itself out
-  const push = gas > .5 ? 1 : (brk > .5 && S.v < .6 ? -1 : 0);
+  const push = gas > .5 ? 1 : (rvI > .5 && S.v < .6 ? -1 : 0);
   if (push && Math.abs(S.v) < .7 && !S.winch) S.stuck = (S.stuck || 0) + dt; else if (!push || Math.abs(S.v) > 1.6) S.stuck = 0;
   if (S.stuck > 1.1 && push && S.v * push < 2.2) { S.v += push * 7.5 * dt; S.spin = false; if (!S.assistMsg) { S.assistMsg = true; toast('Diff lock engaged — crawling out', 2.5); } }
   if (S.winch) { const dx = S.winch.x - S.x, dz = S.winch.z - S.z, dc = Math.hypot(dx, dz), d = dc - S.winch.r;
@@ -2606,7 +2623,7 @@ function tick(now) { fpsFrame(now);
   if (S.started && autoQ && raw < .5) { warm += raw; if (warm > 3) { fpsN++; fpsT += raw; if (fpsT > 2.5) { if (fpsN / fpsT < 38 && autoI < AUTOL.length - 1) { autoI++; setQuality(AUTOL[autoI][0], AUTOL[autoI][1]); warm = 0; } fpsN = 0; fpsT = 0; } } }
 
   // body: soft spring to the ground, squat under power, lean in corners
-  S.vy += ((S.ground - S.y) * 90 - S.vy * 13) * dt; S.y += S.vy * dt; if (S.y < S.ground - .25) { S.y = S.ground - .25; S.vy = 0; }
+  if (S.y - S.ground > .1) S.vy -= 17 * dt; else S.vy += ((S.ground - S.y) * 90 - S.vy * 13) * dt; S.y += S.vy * dt; if (S.y < S.ground - .25) { S.y = S.ground - .25; S.vy = 0; }
   const k = Math.min(1, dt * 9); S.pitch += (S.tPitch - S.pitch) * k; S.roll += (S.tRoll - S.roll) * k;
   visP += (clamp(S.acc * .011, -.06, .06) - visP) * Math.min(1, dt * 6); visR += (clamp(-S.v * S.v / WHEELBASE * Math.tan(S.steer) * .012, -.08, .08) - visR) * Math.min(1, dt * 5);
   const vp = S.pitch + visP, vr = S.roll + visR, sY = Math.sin(S.yaw), cY = Math.cos(S.yaw);
@@ -3007,11 +3024,13 @@ let doneShown = false;
 function checkDone() { save(); if (!doneShown && camps.every(c => c.found) && sights.every(s => s.found) && stamps.every(s => s.got)) { doneShown = true; play('done'); toast('Every camp, sight and stamp found. The island is yours — keep driving.', 7); } }
 season = savedSeason; if (season !== 2) applySeason();
 refreshMenu(); autoDest();
+document.querySelectorAll('#optTabs .mb').forEach(b => b.addEventListener('click', () => { const t = +b.dataset.t; document.querySelectorAll('#optTabs .mb').forEach(x => x.classList.toggle('sel', x === b)); for (let i = 0; i < 3; i++) $('ot' + i).style.display = i === t ? '' : 'none'; play('tick'); }));
 // the Exit button only exists inside the Android app, where there is something to close
 if (window.NativeApp && window.NativeApp.exit) $('bExit').addEventListener('click', () => { save(); window.NativeApp.exit(); }); else $('bExit').style.display = 'none';
 try { initAudio(); } catch (e) {}
 window.__game = { BBU, clouds, impCache, renderer, detailTex, apDbg: () => ({ AP, routePts, snapRoad, roadAt }), world: scene, carObj: () => car, three: THREE, dof, pickPaint, PAINTS, roadY, extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
 requestAnimationFrame(frame);
+requestAnimationFrame(() => requestAnimationFrame(() => { const l = document.getElementById('loadScr'); if (l) { l.classList.add('gone'); setTimeout(() => l.remove(), 700); } }));
 })();
 </script>
 </body>
