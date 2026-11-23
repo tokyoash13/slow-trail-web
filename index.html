@@ -128,6 +128,9 @@
   #fade { position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center;
     background: #1a1016; opacity: 0; pointer-events: none; transition: opacity .6s; z-index: 6; font-size: 17px; }
   #fade.show { opacity: 1; }
+  .panel { max-height: calc(100% - 34px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+  @media (max-height: 560px) { .panel { bottom: 10px; max-height: calc(100% - 18px); padding: 6px 10px 8px; } #mCar { max-height: calc(100% - 70px); } .lab { margin: 4px 0 3px; font-size: 9px; } .mb { padding: 5px 8px; font-size: 11px; } .arrowb { width: 34px; height: 34px; } .pick b { font-size: 16px; } #mTitle h1 { font-size: 24px; } }
+  @media (max-height: 420px) { .mb { padding: 4px 7px; } .lab { margin: 3px 0 2px; } }
 </style>
 </head>
 <body>
@@ -1980,11 +1983,27 @@ const POI = camps.concat(sights);
 let dest = null, destManual = false, routeNext = null, routePts = [], routeLen = 0, routeAhead = null, routeT = 0;
 const driveCost = (u, v, st) => { const hv = H[v]; if (hv < -1.25) return 1e9; const s = (hv - H[u]) / st; return st * (RD[v] > .5 ? .22 : T[v] > .4 ? .4 : 1.5 * (1 + 45 * s * s)) * (hv < .1 ? 5 : 1); };
 const destPoint = p => p.kind === 'camp' ? { x: p.gx, z: p.gz } : p;
+let RSEG = null;
+function rsegBuild() { RSEG = new Map(); const B = 25, pad = 7;
+  const add = (a, b) => { const x0 = Math.floor((Math.min(a.x, b.x) - pad) / B), x1 = Math.floor((Math.max(a.x, b.x) + pad) / B), z0 = Math.floor((Math.min(a.z, b.z) - pad) / B), z1 = Math.floor((Math.max(a.z, b.z) + pad) / B);
+    for (let cx = x0; cx <= x1; cx++) for (let cz = z0; cz <= z1; cz++) { const k = cx * 4096 + cz; let l = RSEG.get(k); if (!l) RSEG.set(k, l = []); l.push(a.x, a.z, b.x, b.z); } };
+  for (const r of roads) for (let i = 0; i < r.length - 1; i++) add(r[i], r[i + 1]);
+  if (highway) for (let i = 0; i < highway.pts.length - 1; i++) add(highway.pts[i], highway.pts[i + 1]); }
+function snapRoad(p) { const l = RSEG.get(Math.floor(p.x / 25) * 4096 + Math.floor(p.z / 25)); if (!l) return null; let bd = 49, bx = 0, bz = 0;
+  for (let i = 0; i < l.length; i += 4) { const ax = l[i], az = l[i + 1], dx = l[i + 2] - ax, dz = l[i + 3] - az, ll = dx * dx + dz * dz || 1, t = clamp(((p.x - ax) * dx + (p.z - az) * dz) / ll, 0, 1), x = ax + dx * t, z = az + dz * t, d = (x - p.x) ** 2 + (z - p.z) ** 2; if (d < bd) { bd = d; bx = x; bz = z; } }
+  return bd < 49 ? { x: bx, z: bz } : null; }
 function updateRoute() { if (!dest || !routeNext) { routePts = []; routeAhead = null; routeLen = 0; return; }
-  const q = destPoint(dest), pts = [{ x: S.x, z: S.z }]; let v = vIdx(S.x, S.z), len = 0, ahead = null;
-  const push = p => { const l = pts[pts.length - 1]; len += Math.hypot(p.x - l.x, p.z - l.z); pts.push(p); if (!ahead && len > 34) ahead = p; };
-  for (let n = 0; n < 900; n++) { const nx = routeNext[v]; if (nx < 0) break; v = nx; push({ x: vX(v), z: vZ(v) }); }
-  push({ x: q.x, z: q.z }); if (dest.kind === 'camp') push({ x: dest.x - 6, z: dest.z + 4 });
+  const q = destPoint(dest); let pts = [{ x: S.x, z: S.z }], v = vIdx(S.x, S.z);
+  for (let n = 0; n < 900; n++) { const nx = routeNext[v]; if (nx < 0) break; v = nx; pts.push({ x: vX(v), z: vZ(v) }); }
+  pts.push({ x: q.x, z: q.z }); if (dest.kind === 'camp') pts.push({ x: dest.x - 6, z: dest.z + 4 });
+  // the search walks a 5 m grid, so its path zigzags: relax it into a smooth line, then lay it on the middle of any road it follows
+  const fix = pts.map(() => false); fix[0] = fix[pts.length - 1] = true;
+  const relax = () => { const o = pts.map(p => ({ x: p.x, z: p.z })); for (let i = 1; i < pts.length - 1; i++) if (!fix[i]) { o[i].x = (pts[i - 1].x + 2 * pts[i].x + pts[i + 1].x) / 4; o[i].z = (pts[i - 1].z + 2 * pts[i].z + pts[i + 1].z) / 4; } pts = o; };
+  for (let k = 0; k < 6; k++) relax();
+  if (!RSEG) rsegBuild();
+  for (let i = 1; i < pts.length - 1; i++) { const p = pts[i]; if (roadAt(p.x, p.z) > .25 || (highway && gridAt(AS, p.x, p.z) > .3)) { const sp = snapRoad(p); if (sp) { p.x = sp.x; p.z = sp.z; fix[i] = true; } } }
+  for (let k = 0; k < 3; k++) relax();
+  let len = 0, ahead = null; for (let i = 1; i < pts.length; i++) { len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z); if (!ahead && len > 34) ahead = pts[i]; }
   routePts = pts; routeLen = len; routeAhead = ahead || dest; }
 const AP = { on: false, gas: 0, brake: 0, steer: 0, stuck: 0, rev: 0, target: null };
 function apShow() { const b = $('bAuto'); if (b) b.style.display = CAR && CAR.ap ? '' : 'none'; if (AP.on && !(CAR && CAR.ap)) apToggle(false, true); }
@@ -2001,10 +2020,10 @@ function apFrame(dt) { if (!AP.on) return;
   let bi = 0, bd = 1e9; for (let i = 0; i < Math.min(routePts.length, 60); i++) { const p = routePts[i], d = Math.hypot(p.x - S.x, p.z - S.z); if (d < bd) { bd = d; bi = i; } }
   const look = L => { let acc = 0, px = S.x, pz = S.z; for (let i = bi + 1; i < routePts.length; i++) { const p = routePts[i], l = Math.hypot(p.x - px, p.z - pz); if (acc + l >= L) { const t = (L - acc) / (l || 1); return { x: lerp(px, p.x, t), z: lerp(pz, p.z, t) }; } acc += l; px = p.x; pz = p.z; } return routePts[routePts.length - 1]; };
   const ang = p => { const a = Math.atan2(p.x - S.x, p.z - S.z) - S.yaw; return Math.atan2(Math.sin(a), Math.cos(a)); };
-  const e1 = ang(look(6 + sp * .75)), e2 = ang(look(16 + sp * 1.7));
+  const e1 = ang(look(8 + sp * .9)), e2 = ang(look(16 + sp * 1.7));
   let vt = (roadAt(S.x, S.z) > .3 ? 18 : 10.5) * clamp(1 - Math.abs(e2) * 1.05, .28, 1) * (S.wade > .05 ? .5 : 1);
   if (Math.abs(e1) > 1.3) vt = 3.5; vt = Math.min(vt, 2.5 + dd * .4);
-  AP.steer = clamp(-e1 * 2.3, -1, 1); const err = vt - S.v; AP.gas = clamp(err * .4, 0, 1); AP.brake = err < -1.5 ? clamp(-err * .22, 0, 1) : 0;
+  AP.steer = lerp(AP.steer, clamp(-e1 * 1.9, -1, 1), Math.min(1, dt * 8)); const err = vt - S.v; AP.gas = clamp(err * .4, 0, 1); AP.brake = err < -1.5 ? clamp(-err * .22, 0, 1) : 0;
   if (AP.gas > .4 && sp < .5) { if ((AP.stuck += dt) > 2.2) { AP.stuck = 0; AP.rev = 1.6; AP.steer0 = AP.steer || .6; } } else AP.stuck = 0; }
 function setDest(p, manual) { dest = p; destManual = !!manual && !!p; if (!p) { routeNext = null; routePts = []; routeAhead = null; return; }
   const q = destPoint(p); routeNext = dijkstra(vIdx(q.x, q.z), null, driveCost).prev; updateRoute(); }
@@ -2464,7 +2483,7 @@ function step(dt) { if (vista) { S.v = 0; return; } apFrame(dt);          // par
   const pitch = Math.atan2((wh[0] + wh[1] - wh[2] - wh[3]) / 2, WHEELBASE), roll = Math.atan2((wh[0] + wh[2] - wh[1] - wh[3]) / 2, TRACK);
   const ground = (wh[0] + wh[1] + wh[2] + wh[3]) / 4, depth = -ground, wade = clamp(depth / 1.1, 0, 1);
   S.tPitch = pitch; S.tRoll = roll; S.ground = ground; S.wade = wade;
-  const su = SURF[S.surf = carSurf()], mu = su.mu * (1 - wade * .2) * CAR.grip * (1 - wx.rain * .12);
+  const su = SURF[S.surf = carSurf()], mu = su.mu * (1 - wade * .2) * CAR.grip * (1 - wx.rain * .27) * (1 - .15 * Math.max(S.surf === 4 ? 1 : 0, season === 3 ? 1 : 0, Math.min(1, wx.snow * 1.5)));
   const traction = mu * 9.8 * Math.cos(pitch) * .95;
   const gF = -9.8 * Math.sin(pitch), gL = 9.8 * Math.sin(roll);
   const live = !S.flooded && S.started && !vista;
@@ -2910,7 +2929,7 @@ refreshMenu(); autoDest();
 // the Exit button only exists inside the Android app, where there is something to close
 if (window.NativeApp && window.NativeApp.exit) $('bExit').addEventListener('click', () => { save(); window.NativeApp.exit(); }); else $('bExit').style.display = 'none';
 try { initAudio(); } catch (e) {}
-window.__game = { dof, pickPaint, PAINTS, roadY, extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
+window.__game = { apDbg: () => ({ AP, routePts, snapRoad, roadAt }), world: scene, carObj: () => car, three: THREE, dof, pickPaint, PAINTS, roadY, extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
 requestAnimationFrame(frame);
 })();
 </script>
