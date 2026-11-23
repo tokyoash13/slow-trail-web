@@ -131,6 +131,7 @@
   .panel { max-height: calc(100% - 34px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
   @media (max-height: 560px) { .panel { bottom: 10px; max-height: calc(100% - 18px); padding: 6px 10px 8px; } #mCar { max-height: calc(100% - 70px); } .lab { margin: 4px 0 3px; font-size: 9px; } .mb { padding: 5px 8px; font-size: 11px; } .arrowb { width: 34px; height: 34px; } .pick b { font-size: 16px; } #mTitle h1 { font-size: 24px; } }
   @media (max-height: 420px) { .mb { padding: 4px 7px; } .lab { margin: 3px 0 2px; } }
+  #fpsBox { position: absolute; left: 10px; bottom: 58px; z-index: 6; font: 600 13px system-ui, sans-serif; color: #fff; text-shadow: 0 1px 3px #000; pointer-events: none; display: none; }
 </style>
 </head>
 <body>
@@ -166,7 +167,7 @@
   <div class="panel" id="mOpt">
     <div class="lab">TIME OF DAY</div><div class="chips c4" id="times"></div>
     <div class="lab">SEASON</div><div class="chips c4" id="seasons"></div>
-    <div class="lab">OPTIONS</div><div class="chips"><button class="mb" id="bGfx">Graphics: Auto</button><button class="mb" id="bDof">Distance focus: On</button><button class="mb" id="bExit">Exit game</button></div>
+    <div class="lab">OPTIONS</div><div class="chips"><button class="mb" id="bGfx">Graphics: Auto</button><button class="mb" id="bDof">Distance focus: On</button><button class="mb" id="bFps">FPS: Off</button><button class="mb" id="bExit">Exit game</button></div>
     <div class="lab">WEATHER</div><div class="chips"><button class="mb" id="bWx">Weather: Seasonal</button><button class="mb" id="bWxS">Back to seasonal</button></div>
     <div id="wxBox"><div class="vol"><span>Rain</span><input type="range" id="wRain" min="0" max="100" step="5" value="0" aria-label="Rain, light to heavy"></div><div class="vol"><span>Snow</span><input type="range" id="wSnow" min="0" max="100" step="5" value="0" aria-label="Snow"></div><div class="vol"><span>Wind</span><input type="range" id="wWind" min="0" max="100" step="5" value="30" aria-label="Wind"></div><div class="vol"><span>Fog</span><input type="range" id="wFog" min="0" max="100" step="5" value="0" aria-label="Fog"></div><div class="vol"><span>Thunder</span><input type="range" id="wThun" min="0" max="100" step="5" value="0" aria-label="Thunder and lightning"></div></div>
     <div class="lab">VOLUME</div>
@@ -615,7 +616,7 @@ function surfaceAt(x, z, h, s) {
 /* ---------- renderer, scene, sky ---------- */
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xf3ddd0, 90, 880);
 const camera = new THREE.PerspectiveCamera(58, 1, .5, 4600);
@@ -868,6 +869,35 @@ natLeafMat.onBeforeCompile = sh => { sh.uniforms.uTime = timeU; sh.uniforms.uWin
       ' vec3 fn = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition))); float fc = abs(dot(fn, normalize(vViewPosition))); diffuseColor.a *= mix(smoothstep(.1, .3, fc), smoothstep(.5, .85, fc), vTop);'); };   // a card seen edge-on fades out instead of showing as a line
 natLeafMat.extensions = { derivatives: true };
 natLeafMat.userData.depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: natTex, alphaTest: .42 });
+// trees beyond BBU metres are drawn as one flat picture each (rendered from the real model at start-up); nearer ones stay full 3D
+const BBU = { value: 150 }, BBL = { value: new THREE.Color(1, 1, 1) };
+const natTreeMat = new THREE.MeshPhongMaterial({ map: natTex, alphaTest: .42, side: THREE.DoubleSide, shininess: 0, vertexColors: true });
+natTreeMat.extensions = { derivatives: true }; natTreeMat.userData.depth = natLeafMat.userData.depth;
+natTreeMat.onBeforeCompile = sh => { natLeafMat.onBeforeCompile(sh); sh.uniforms.uBB = BBU;
+  sh.vertexShader = 'uniform float uBB;\n' + sh.vertexShader.replace('#include <project_vertex>', '{ vec4 bc = modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0); if (distance(bc.xz, cameraPosition.xz) > uBB) transformed = vec3(0.0); }\n#include <project_vertex>'); };
+natTreeMat.customProgramCacheKey = () => 'tree-near';
+const impCache = new Map();
+function treeImpostor(geo) {
+  if (impCache.has(geo)) return impCache.get(geo);
+  geo.computeBoundingBox(); const bb = geo.boundingBox, sz = new THREE.Vector3(); bb.getSize(sz);
+  const w = Math.max(sz.x, sz.z) * 1.02, h = sz.y * 1.02, cx = (bb.min.x + bb.max.x) / 2, H = 256, W = w > h * .7 ? 256 : w > h * .35 ? 128 : 64;
+  const rt = new THREE.WebGLRenderTarget(W, H, { minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: true });
+  const ts = new THREE.Scene(); ts.add(new THREE.AmbientLight(0xffffff, 1));
+  const im = new THREE.InstancedMesh(geo, natLeafMat, 1); im.setMatrixAt(0, new THREE.Matrix4()); im.setColorAt(0, new THREE.Color(1, 1, 1)); im.frustumCulled = false; ts.add(im);
+  const cam = new THREE.OrthographicCamera(cx - w / 2, cx + w / 2, bb.min.y + h, bb.min.y, -60, 60); cam.position.set(0, 0, 0); cam.lookAt(0, 0, -1);
+  const pc = new THREE.Color(); renderer.getClearColor(pc); const pa = renderer.getClearAlpha(), prt = renderer.getRenderTarget();
+  renderer.setRenderTarget(rt); renderer.setClearColor(0x3a4a2a, 0); renderer.clear(); renderer.render(ts, cam); renderer.setRenderTarget(prt); renderer.setClearColor(pc, pa);
+  const pg = new THREE.PlaneGeometry(cx * 0 + w, h); pg.translate(cx, bb.min.y + h / 2, 0);
+  pg.setAttribute('color', new THREE.Float32BufferAttribute(new Array(pg.attributes.position.count * 3).fill(1), 3));
+  const mat = new THREE.MeshBasicMaterial({ map: rt.texture, alphaTest: .45, side: THREE.DoubleSide, vertexColors: true });
+  mat.onBeforeCompile = sh => { sh.uniforms.uBB = BBU; sh.uniforms.uBL = BBL;
+    sh.vertexShader = 'uniform float uBB;\n' + sh.vertexShader.replace('#include <project_vertex>',
+      'vec4 bc = modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0); float sx = length(instanceMatrix[0].xyz), sy = length(instanceMatrix[1].xyz); vec3 tc = bc.xyz - cameraPosition;' +
+      ' vec3 rgt = normalize(vec3(tc.z, 0.0, -tc.x) + vec3(1e-5, 0.0, 0.0)); vec3 wp = bc.xyz + rgt * transformed.x * sx + vec3(0.0, transformed.y * sy, 0.0); if (length(tc.xz) <= uBB) wp = bc.xyz;' +
+      ' vec4 mvPosition = viewMatrix * vec4(wp, 1.0); gl_Position = projectionMatrix * mvPosition;');
+    sh.fragmentShader = 'uniform vec3 uBL;\n' + sh.fragmentShader.replace('#include <color_fragment>', 'diffuseColor.rgb *= vColor * uBL;'); };
+  mat.customProgramCacheKey = () => 'tree-far';
+  const r = { geo: pg, mat }; impCache.set(geo, r); return r; }
 // rocks and logs: the scan's own picture, tinted by the ground it stands on
 const natSolid = gain => { const m = new THREE.MeshPhongMaterial({ map: natTex, shininess: 2, vertexColors: true }); m.userData.gain = gain; m.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <color_vertex>', 'vColor = (instanceColor.xyz + .35) * ' + gain.toFixed(2) + ';'); }; return m; };
 const natRockMat = natSolid(1.12), natWoodMat = natSolid(.82);
@@ -885,7 +915,11 @@ function scatter(geo, items, mat, cast, tag, far) {
     list.forEach((it, i) => { e.set(it.rx || 0, it.ry || 0, it.rz || 0); q.setFromEuler(e); v.set(it.x, it.y, it.z); sc.set(it.s, it.s * (it.sy || 1), it.s);
       mm.compose(v, q, sc); m.setMatrixAt(i, mm); c.setHex(it.tint === undefined ? 0xffffff : it.tint); m.setColorAt(i, c); });
     if (tag) tinted.push({ m, list, tag }); m.castShadow = !!cast; scene.add(m); const lo = geo.userData.lo ? (() => { const l = new THREE.BufferGeometry(); for (const a in geo.userData.lo.attributes) l.setAttribute(a, geo.userData.lo.attributes[a]); l.boundingSphere = g.boundingSphere; return l; })() : null;
-    chunks.push({ m, x: g.boundingSphere.center.x, z: g.boundingSphere.center.z, r: size * .72, far, cast: !!cast, hi: g, lo }); }
+    const isTree = mat === natLeafMat && (cast || far >= 250);
+    if (isTree) { m.material = natTreeMat; const imp = treeImpostor(geo), bgeo = new THREE.BufferGeometry(); for (const a in imp.geo.attributes) bgeo.setAttribute(a, imp.geo.attributes[a]); bgeo.setIndex(imp.geo.index); bgeo.boundingSphere = g.boundingSphere;
+      const bm = new THREE.InstancedMesh(bgeo, imp.mat, list.length); bm.instanceMatrix = m.instanceMatrix; bm.instanceColor = m.instanceColor; scene.add(bm);
+      chunks.push({ m: bm, x: g.boundingSphere.center.x, z: g.boundingSphere.center.z, r: size * .72, far, bb: 1 }); }
+    chunks.push({ m, x: g.boundingSphere.center.x, z: g.boundingSphere.center.z, r: size * .72, far, cast: !!cast, hi: g, lo, bbHi: isTree ? 1 : 0 }); }
 }
 // things you can bump into and hook the winch onto
 const solids = [], solidGrid = new Map(), TG = 20;
@@ -1945,7 +1979,7 @@ function applyEnv(dt) {
 
 /* ---------- graphics quality ---------- */
 let quality = 2, autoQ = true, soundOn = true;
-function setQuality(q) { quality = q; const dpr = window.devicePixelRatio || 1;
+function setQuality(q) { quality = q; BBU.value = q === 2 ? 170 : q === 1 ? 130 : 95; const dpr = window.devicePixelRatio || 1;
   pixelRatio = q === 2 ? Math.min(dpr, 2) : q === 1 ? Math.min(dpr, 1.5) : 1;
   const size = q === 2 ? 2048 : 1024; if (sun.shadow.mapSize.x !== size) { sun.shadow.mapSize.set(size, size); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   if (groundMat) { const bm = q > 0 ? detailTex : null; if (groundMat.bumpMap !== bm) { groundMat.bumpMap = bm; groundMat.needsUpdate = true; } }
@@ -2547,7 +2581,9 @@ function step(dt) { if (vista) { S.v = 0; return; } apFrame(dt);          // par
 /* ---------- frame ---------- */
 let cullT = 0, last = performance.now(), hudT = 0, fpsN = 0, fpsT = 0, warm = 0, visP = 0, visR = 0;
 const v3 = new THREE.Vector3();
-function tick(now) {
+let fpsOn = false, fpsCnt = 0, fpsT0 = 0;
+function fpsFrame(now) { if (!fpsOn) return; fpsCnt++; if (now - fpsT0 >= 1000) { const el = document.getElementById('fpsBox'); if (el) el.textContent = Math.round(fpsCnt * 1000 / (now - fpsT0)) + ' fps · ' + ['low', 'medium', 'high'][quality] + ' graphics'; fpsCnt = 0; fpsT0 = now; } }
+function tick(now) { fpsFrame(now);
   const raw = (now - last) / 1000; last = now; const dt = Math.min(.05, raw); clock += dt; timeU.value = clock;
   pollPad(dt); step(dt / 2); step(dt / 2); applyEnv(dt);
   if (S.started && autoQ && raw < .5) { warm += raw; if (warm > 3) { fpsN++; fpsT += raw; if (fpsT > 2.5) { if (fpsN / fpsT < 29 && quality > 0) { setQuality(quality - 1); warm = 0; } fpsN = 0; fpsT = 0; } } }
@@ -2602,10 +2638,14 @@ function tick(now) {
   // light follows the truck
   skyMesh.position.copy(camera.position); stars.position.copy(camera.position);
   v3.copy(lightDir);
-  sun.position.set(S.x + v3.x * 190, S.y + v3.y * 190, S.z + v3.z * 190); sun.target.position.set(S.x, S.y, S.z); sun.target.updateMatrixWorld();
+  { const dl = Math.hypot(v3.x, v3.y, v3.z) || 1, dx = v3.x / dl, dy = v3.y / dl, dz = v3.z / dl, al = Math.hypot(dz, dx) || 1, ax = dz / al, az = -dx / al;
+    const ux = dy * az, uy = dz * ax - dx * az, uz = -dy * ax, tx = 124 / sun.shadow.mapSize.x;
+    const pa = Math.round((S.x * ax + S.z * az) / tx) * tx, pu = Math.round((S.x * ux + S.y * uy + S.z * uz) / tx) * tx, pd = S.x * dx + S.y * dy + S.z * dz;
+    const px = ax * pa + ux * pu + dx * pd, py = uy * pu + dy * pd, pz = az * pa + uz * pu + dz * pd;
+    sun.position.set(px + dx * 190, py + dy * 190, pz + dz * 190); sun.target.position.set(px, py, pz); sun.target.updateMatrixWorld(); }
   sun.castShadow = quality > 0;
   fireLight.position.set(nearCamp.x, nearCamp.gy + 1, nearCamp.z); fireLight.intensity = Math.max(E.lights * (1.1 + (1 - E.glow) * .5 + Math.sin(clock * 11) * .2) * (nd < 120 ? 1 : 0), vista && vista.camp ? 1.5 + Math.sin(clock * 11) * .25 + Math.sin(clock * 17) * .12 : 0);
-  if ((cullT -= dt) <= 0) { cullT = .3; const lim = scene.fog.far + 20; for (const c of chunks) { const d = Math.hypot(c.x - camera.position.x, c.z - camera.position.z); c.m.visible = d < Math.min(lim, c.far || 1e9) + c.r; if (c.cast !== undefined) c.m.castShadow = c.cast && d < 120 + c.r; if (c.lo) { const w = d > 150 + c.r ? c.lo : c.hi; if (c.m.geometry !== w) c.m.geometry = w; } } }
+  if ((cullT -= dt) <= 0) { cullT = .3; BBL.value.copy(hemi.color).multiplyScalar(hemi.intensity * 1.02).add(tmpC.copy(sun.color).multiplyScalar(sun.intensity * .56)); const lim = scene.fog.far + 20; for (const c of chunks) { const d = Math.hypot(c.x - camera.position.x, c.z - camera.position.z); c.m.visible = d < Math.min(lim, c.far || 1e9) + c.r; if (c.bb) c.m.visible = c.m.visible && d + c.r > BBU.value; else if (c.bbHi) c.m.visible = c.m.visible && d - c.r < BBU.value; if (c.cast !== undefined) c.m.castShadow = c.cast && d < 120 + c.r; if (c.lo) { const w = d > 150 + c.r ? c.lo : c.hi; if (c.m.geometry !== w) c.m.geometry = w; } } }
   clouds.forEach((c, i) => { c.position.x += dt * 5; if (c.position.x > 1400) c.position.x = -1400; c.visible = i < [12, 5, 9, 12][season]; });
   birds.forEach((b, i) => { const a = clock * b.sp + b.ph, cx = S.x + Math.sin(i * 2.1) * 30, cz = S.z + Math.cos(i * 1.7) * 30;
     b.m.position.set(cx + Math.cos(a) * b.r, Math.max(S.y, 0) + b.h + Math.sin(a * 2) * 3, cz + Math.sin(a) * b.r); b.m.rotation.y = -a; b.m.scale.y = Math.sin(clock * 7 + b.ph); b.m.visible = E.glow > .5 && (i < 9 || season === 0); });
@@ -2665,6 +2705,10 @@ const dof = { on: true, ok: true, w: 0, h: 0 };
     const r = 1.15 * dof.h / 720; blur.uniforms.t.value = rt.texture; blur.uniforms.d.value.set(r / dof.w, 0); pass(blur, b1); blur.uniforms.t.value = b1.texture; blur.uniforms.d.value.set(0, r / dof.h); pass(blur, b2);
     comp.uniforms.t.value = rt.texture; comp.uniforms.b.value = b2.texture; comp.uniforms.z.value = rt.depthTexture; comp.uniforms.f.value.x = camera.near; comp.uniforms.f.value.y = camera.far; pass(comp, null); renderer.shadowMap.autoUpdate = sh; }; })();
 { try { dof.on = localStorage.getItem('slowtrail-dof') !== '0'; } catch (e) {} const show = () => { $('bDof').textContent = 'Distance focus: ' + (dof.on ? 'On' : 'Off'); }; show();
+  { const fb = document.createElement('div'); fb.id = 'fpsBox'; document.getElementById('root').appendChild(fb);
+    const showF = () => { $('bFps').textContent = 'FPS: ' + (fpsOn ? 'On' : 'Off'); fb.style.display = fpsOn ? 'block' : 'none'; };
+    try { fpsOn = localStorage.getItem('slowtrail-fps') === '1'; } catch (e) {} showF();
+    $('bFps').addEventListener('click', () => { fpsOn = !fpsOn; try { localStorage.setItem('slowtrail-fps', fpsOn ? '1' : '0'); } catch (e) {} showF(); }); }
   $('bDof').addEventListener('click', () => { dof.on = !dof.on; try { localStorage.setItem('slowtrail-dof', dof.on ? '1' : '0'); } catch (e) {} show(); }); }
 function frame(now) { requestAnimationFrame(frame); try { tick(now); } catch (e) { report(e); try { renderer.render(scene, camera); } catch (_) {} } }
 canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); $('fadeMsg').textContent = 'Graphics were reset — reloading'; $('fade').classList.add('show'); setTimeout(() => location.reload(), 1200); });
@@ -2949,7 +2993,7 @@ refreshMenu(); autoDest();
 // the Exit button only exists inside the Android app, where there is something to close
 if (window.NativeApp && window.NativeApp.exit) $('bExit').addEventListener('click', () => { save(); window.NativeApp.exit(); }); else $('bExit').style.display = 'none';
 try { initAudio(); } catch (e) {}
-window.__game = { detailTex, apDbg: () => ({ AP, routePts, snapRoad, roadAt }), world: scene, carObj: () => car, three: THREE, dof, pickPaint, PAINTS, roadY, extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
+window.__game = { BBU, detailTex, apDbg: () => ({ AP, routePts, snapRoad, roadAt }), world: scene, carObj: () => car, three: THREE, dof, pickPaint, PAINTS, roadY, extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
 requestAnimationFrame(frame);
 })();
 </script>
