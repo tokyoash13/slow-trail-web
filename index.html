@@ -1800,7 +1800,17 @@ function vmInside(k, o) { const { bx, cy } = k, Mt = k.M, IN = 0x24262a, ST = 0x
 const vmBody = name => k => { const M = vmGet(name), m = M.m, b2 = typeof PAINT2 !== 'undefined' && typeof sel !== 'undefined' && PAINT2[sel.paint] != null ? PAINT2[sel.paint] : k.PAINT; vmPaint(M, k.PAINT, m.dual ? b2 : k.PAINT);
   if (m.inside) vmInside(k, m.inside); if (m.extraLit) for (const l of m.extraLit) if (l[3] > 0) for (const sx of [1, -1]) k.cy(k.L, l[3] * .85, l[3], .025, 14, 0xffffff, sx * l[0], l[1], l[2], HP);
   return { spare: null, meshes: M.body.map(e => { const x = new THREE.Mesh(e.g, e.mat); x.castShadow = e.k !== 'glass'; return x; }) }; };
-const vmWheel = name => lx => { const M = vmGet(name), g = new THREE.Group(); for (const e of M.wheel) { const x = new THREE.Mesh(e.g, e.mat); x.castShadow = true; g.add(x); } if (lx < 0) g.scale.x = -1; return g; };
+const WFIX = { beetle2: 1, vaz: 1 };
+function vmWheelFix(M, name) { if (M.wfix !== undefined) return M.wfix; if (!WFIX[name]) return M.wfix = null; const V = new THREE.Vector3(), P0 = []; for (const e of M.wheel) { const a = e.g.attributes.position; for (let i = 0; i < a.count; i++) P0.push(V.fromBufferAttribute(a, i).clone()); }
+  M.wfix = null; if (P0.length < 30) return null; const X = new THREE.Vector3(1, 0, 0), q = new THREE.Quaternion(); let c = new THREE.Vector3();
+  for (let it = 0; it < 4; it++) { const P = P0.map(p => p.clone().applyQuaternion(q)); c.set(0, 0, 0); P.forEach(p => c.add(p)); c.multiplyScalar(1 / P.length);
+    const r = P.map(p => Math.hypot(p.y - c.y, p.z - c.z)), rm = Math.max(...r), Q = P.filter((p, i) => r[i] > rm * .9); c.set(0, 0, 0); Q.forEach(p => c.add(p)); c.multiplyScalar(1 / Q.length);
+    const m = [0, 0, 0, 0, 0, 0, 0, 0, 0]; Q.forEach(p => { const d = [p.x - c.x, p.y - c.y, p.z - c.z]; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) m[i * 3 + j] += d[i] * d[j]; });
+    const M3 = new THREE.Matrix3().set(...m).invert(); const v = new THREE.Vector3(1, 0, 0); for (let k = 0; k < 40; k++) v.applyMatrix3(M3).normalize(); if (v.x < 0) v.negate(); if (v.x > .9995) break;
+    q.premultiply(new THREE.Quaternion().setFromUnitVectors(v, X)); }
+  const tilt = 2 * Math.acos(Math.min(1, Math.abs(q.w))), off = Math.hypot(c.y, c.z); if (tilt < .035 && off < .008) return null;
+  const o = c.clone().negate(); o.x = 0; return M.wfix = { q, o }; }
+const vmWheel = name => lx => { const M = vmGet(name), g = new THREE.Group(), fx = vmWheelFix(M, name), h = fx ? new THREE.Group() : g; if (fx) { h.quaternion.copy(fx.q); h.position.copy(fx.o); g.add(h); } for (const e of M.wheel) { const x = new THREE.Mesh(e.g, e.mat); x.castShadow = true; h.add(x); } if (lx < 0) g.scale.x = -1; return g; };
 function vmApply(def, name, desc) { const m = VMD[name].m; def.wb = m.wb; def.track = m.track; def.wr = m.wr; def.eye = m.eye; def.lamp = m.lamp; def.body = vmBody(name); def.wheelMesh = vmWheel(name); def.model = true; def.fine = false; def.wbP = m.wb < 2.3 && !m.open ? 2.3 : 0; if (m.codeWheel) { def.wheelMesh = null; def.fine = true; def.wr = Math.max(m.wr - .03, .24); def.wsx = .5; } def.open = !!m.open; def.vm = name; if (desc) def.desc = desc; }
 const CARS = [
   { name: 'Mule', desc: 'Short 4x4 with a canvas top. Does everything well.', wb: 2.6, track: 1.8, wr: .48, aHi: 4.8, aLo: 9, vmax: 23, grip: 1, stats: [3, 3, 3], body: bodyMule, fine: true, eye: [.36, 1.8, -.52], lamp: [.455, 1.14, 1.88],
