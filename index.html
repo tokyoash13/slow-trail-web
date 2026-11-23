@@ -1980,7 +1980,7 @@ function applyEnv(dt) {
 /* ---------- graphics quality ---------- */
 let quality = 2, autoQ = true, soundOn = true;
 function setQuality(q) { quality = q; BBU.value = q === 2 ? 170 : q === 1 ? 130 : 95; const dpr = window.devicePixelRatio || 1;
-  pixelRatio = q === 2 ? Math.min(dpr, 2) : q === 1 ? Math.min(dpr, 1.5) : 1;
+  pixelRatio = q === 2 ? Math.min(dpr, 2) : q === 1 ? Math.min(dpr, 1.25) : 1;
   const size = q === 2 ? 2048 : 1024; if (sun.shadow.mapSize.x !== size) { sun.shadow.mapSize.set(size, size); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   if (groundMat) { const bm = q > 0 ? detailTex : null; if (groundMat.bumpMap !== bm) { groundMat.bumpMap = bm; groundMat.needsUpdate = true; } }
   blob.visible = q === 0; layout(); $('bGfx').textContent = 'Graphics: ' + (autoQ ? 'Auto' : ['Low', 'Medium', 'High'][q]); }
@@ -2586,7 +2586,7 @@ function fpsFrame(now) { if (!fpsOn) return; fpsCnt++; if (now - fpsT0 >= 1000) 
 function tick(now) { fpsFrame(now);
   const raw = (now - last) / 1000; last = now; const dt = Math.min(.05, raw); clock += dt; timeU.value = clock;
   pollPad(dt); step(dt / 2); step(dt / 2); applyEnv(dt);
-  if (S.started && autoQ && raw < .5) { warm += raw; if (warm > 3) { fpsN++; fpsT += raw; if (fpsT > 2.5) { if (fpsN / fpsT < 29 && quality > 0) { setQuality(quality - 1); warm = 0; } fpsN = 0; fpsT = 0; } } }
+  if (S.started && autoQ && raw < .5) { warm += raw; if (warm > 3) { fpsN++; fpsT += raw; if (fpsT > 2.5) { if (fpsN / fpsT < 38 && quality > 0) { setQuality(quality - 1); warm = 0; } fpsN = 0; fpsT = 0; } } }
 
   // body: soft spring to the ground, squat under power, lean in corners
   S.vy += ((S.ground - S.y) * 90 - S.vy * 13) * dt; S.y += S.vy * dt; if (S.y < S.ground - .25) { S.y = S.ground - .25; S.vy = 0; }
