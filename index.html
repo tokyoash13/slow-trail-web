@@ -130,15 +130,17 @@
   .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .chips.c3 { grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 0 0 4px; } .c3 .mb { padding: 7px 0; font-size: 12px; }
   .chips.c4 { grid-template-columns: repeat(4, 1fr); gap: 4px; } .c4 .mb { padding: 7px 0; font-size: 11px; }
+  .srow { display: flex; gap: 6px; margin-top: 9px; align-items: stretch; } .srow #start { margin-top: 0; flex: 1; } .srow #flip, .srow #bExit { margin-top: 0; width: auto; flex: 0 0 auto; padding: 0 14px; border-radius: 22px; }
+  #mHelp { display: none !important; } #root.pad #mHelp { display: block !important; }
   #start { width: 100%; margin-top: 9px; padding: 11px 0; font-size: 17px; font-weight: bold; color: #2a1a20; background: #f0b050; border: 0; border-radius: 22px; }
-  #flip { display: none; width: 100%; margin-top: 6px; } #root.rot #flip { display: block; }
+  #flip { display: none; width: 100%; margin-top: 6px; } #root.rot #flip { display: block; } #root.rot .srow #flip { display: inline-block; }
   #mHelp { position: absolute; left: 0; right: 0; bottom: 7px; text-align: center; font-size: 10.5px; opacity: .9; text-shadow: 0 1px 3px rgba(0,0,0,.6); white-space: nowrap; overflow: hidden; }
   #padstat { color: #ffd08a; }
   #fade { position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center;
     background: #1a1016; opacity: 0; pointer-events: none; transition: opacity .6s; z-index: 6; font-size: 17px; }
   #fade.show { opacity: 1; }
   .panel { max-height: calc(100% - 34px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
-  @media (max-height: 560px) { .panel { bottom: 10px; max-height: calc(100% - 18px); padding: 6px 10px 8px; } #mCar { max-height: calc(100% - 70px); } .lab { margin: 4px 0 3px; font-size: 9px; } .mb { padding: 5px 8px; font-size: 11px; } .arrowb { width: 34px; height: 34px; } .pick b { font-size: 16px; } #mTitle h1 { font-size: 24px; } }
+  @media (max-height: 560px) { .panel { bottom: 10px; max-height: calc(100% - 18px); padding: 8px 11px 9px; } .chips { gap: 5px; } .chips.c3, .chips.c4 { gap: 5px; } #swatches { gap: 5px; } #swatches button { width: 23px; height: 23px; } #mCar { max-height: calc(100% - 70px); } .lab { margin: 4px 0 3px; font-size: 9px; } .mb { padding: 5px 8px; font-size: 11px; } .arrowb { width: 34px; height: 34px; } .pick b { font-size: 16px; } #mTitle h1 { font-size: 24px; } }
   @media (max-height: 420px) { .mb { padding: 4px 7px; } .lab { margin: 3px 0 2px; } }
   #fpsBox { position: absolute; left: 10px; bottom: 58px; z-index: 6; font: 600 13px system-ui, sans-serif; color: #fff; text-shadow: 0 1px 3px #000; pointer-events: none; display: none; }
 </style>
@@ -189,8 +191,8 @@
     <div class="vol"><span>Music</span><input type="range" id="vMus" min="0" max="100" step="5" value="70" aria-label="Music volume"></div>
     <div class="vol"><span>Environment</span><input type="range" id="vEnv" min="0" max="100" step="5" value="70" aria-label="Environment volume"></div>
     <div class="vol"><span>Effects</span><input type="range" id="vFx" min="0" max="100" step="5" value="70" aria-label="Effects volume"></div></div>
-    <button class="mb" id="start">Start driving</button>
-    <div class="chips"><button class="mb" id="flip">Flip screen</button><button class="mb" id="bExit">Exit game</button></div>
+    <div class="srow"><button class="mb" id="start">Start driving</button>
+    <button class="mb" id="flip">Flip screen</button><button class="mb" id="bExit">Exit</button></div>
   </div>
   <div id="mHelp">Slide on the left to steer, pedals on the right · or controller: RT gas, LT brake, sticks steer / look, X winch, LB low gear · <span id="padstat">press any controller button to connect</span></div>
 </div>
@@ -841,7 +843,7 @@ const waterMat = new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: tru
         ' cos(wp.y * .38 + wt * 1.1) + .6 * sin(wp.x * 1.3 + wt * 1.7) + .4 * cos((wp.x - wp.y) * 2.1 - wt * 2.2)) * .06;' +
         ' normal = normalize(normal + (viewMatrix * vec4(wn, 0.0)).xyz);')
       .replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );', ' float fr = pow(1.0 - clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0), 4.0) * (1.0 - foam);' +
-        ' outgoingLight = mix(outgoingLight, uSky, fr * .72); vec2 vd = normalize(vWp.xz - cameraPosition.xz); float al = max(dot(vd, uSunXZ), 0.0);' +
+        ' outgoingLight = mix(outgoingLight, uSky, fr * .5); vec2 vd = normalize(vWp.xz - cameraPosition.xz); float al = max(dot(vd, uSunXZ), 0.0);' +
         ' float gl = pow(al, 90.0) * (.3 + .7 * smoothstep(.05, .7, sin(vWp.x * 1.9 + uTime * 2.3) * sin(vWp.z * 2.3 - uTime * 1.9))) + pow(al, 700.0) * .7; outgoingLight += uSunC * gl * 1.25; diffuseColor.a = max(diffuseColor.a, fr * .92);\n gl_FragColor = vec4( outgoingLight, diffuseColor.a );'); };
   const water = new THREE.Mesh(wg, waterMat); water.frustumCulled = false; scene.add(water);
 })();
@@ -1843,6 +1845,7 @@ const SNDX = {
   Marshal: { cyl: 8, idle: 620, red: 5200, kind: 'petrol', bright: 380, rough: .18, vol: 1.05, noise: .07, horn: { f: [330, 415], dur: .5, k: 'dual' } },
   Shepherd: { cyl: 4, idle: 720, red: 4000, kind: 'diesel', bright: 400, rough: .26, vol: 1.1, noise: .12, clatter: .5, horn: { f: [400, 480], dur: .45, k: 'dual' } } };
 for (const d of CARS) if (SNDX[d.name]) d.snd = SNDX[d.name];
+const DRIFT = { Thunder: 1, Breeze: .85, Riviera: .8, Baron: .7, Hornet: .75, Marshal: .6 }; for (const d of CARS) d.drift = DRIFT[d.name] || 0;
 if (CARS[1] && CARS[1].name === 'Drifter') { CARS[1].ap = true; CARS[1].desc = 'Electric pickup with autopilot: tap AUTO and it drives itself along the blue arrows.'; }
 let CAR = CARS[0], car = null, wheels = [], WL = [], WR = .48, WHEELBASE = 2.6, TRACK = 1.8;
 const glowTex = (function () { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
@@ -1968,10 +1971,10 @@ const SEASON_ENV = [{ sky: K(0xbfe6f2), k: .2, sun: 1, amb: 1.02, fog: 1.1 }, { 
 /* ---------- light: four times of day ---------- */
 const TIMES = ['dawn', 'day', 'sunset', 'night'], TIME_LABEL = { dawn: 'Dawn', day: 'Day', sunset: 'Sunset', night: 'Night' };
 const ENV = {
-  dawn:   { top: 0x86a9d8, hor: 0xf9cdbc, fog: 0xf3c5b8, sunC: 0xffc8a2, hemiS: 0xf6ccd4, hemiG: 0x8c6e88, ws: 0xcbe6ea, wd: 0x6aa2c0, sunI: 1.2, hemiI: .54, fogN: 45, fogF: 660, stars: .0,  lights: 1, lel: 27, el: 5.5, az: 100, glow: 1 },
-  day:    { top: 0x7cb4e8, hor: 0xf8e7dc, fog: 0xf4ded2, sunC: 0xfff3df, hemiS: 0xe2efff, hemiG: 0xac8874, ws: 0xc6f0f4, wd: 0x4f9fc6, sunI: 1.3, hemiI: .52, fogN: 85, fogF: 880, stars: 0,   lights: 0, lel: 52, el: 52, az: 140, glow: 1 },
-  sunset: { top: 0x5d64a4, hor: 0xffa272, fog: 0xee9c7c, sunC: 0xff9c5e, hemiS: 0xf4a696, hemiG: 0x5e4a78, ws: 0xf2bca4, wd: 0x5c6c9e, sunI: 1.24, hemiI: .5, fogN: 45, fogF: 660, stars: .3,  lights: 1, lel: 23, el: 4,  az: 250, glow: 1 },
-  night:  { top: 0x070b24, hor: 0x5c3260, fog: 0x2c2244, sunC: 0xa8bcf2, hemiS: 0x5e5e9c, hemiG: 0x28203e, ws: 0x4e6e96, wd: 0x162244, sunI: .38, hemiI: .5,  fogN: 40, fogF: 640, stars: 1,   lights: 1, lel: 44, el: 44, az: 205, glow: 0 } };
+  dawn:   { top: 0x86a9d8, hor: 0xf9cdbc, fog: 0xf3c5b8, sunC: 0xffc8a2, hemiS: 0xf6ccd4, hemiG: 0x8c6e88, ws: 0x8ccbe0, wd: 0x3a7cb2, sunI: 1.2, hemiI: .54, fogN: 45, fogF: 660, stars: .0,  lights: 1, lel: 27, el: 5.5, az: 100, glow: 1 },
+  day:    { top: 0x7cb4e8, hor: 0xf8e7dc, fog: 0xf4ded2, sunC: 0xfff3df, hemiS: 0xe2efff, hemiG: 0xac8874, ws: 0x7ad0e8, wd: 0x2a78c0, sunI: 1.3, hemiI: .52, fogN: 85, fogF: 880, stars: 0,   lights: 0, lel: 52, el: 52, az: 140, glow: 1 },
+  sunset: { top: 0x5d64a4, hor: 0xffa272, fog: 0xee9c7c, sunC: 0xff9c5e, hemiS: 0xf4a696, hemiG: 0x5e4a78, ws: 0xb0b2cc, wd: 0x36528e, sunI: 1.24, hemiI: .5, fogN: 45, fogF: 660, stars: .3,  lights: 1, lel: 23, el: 4,  az: 250, glow: 1 },
+  night:  { top: 0x070b24, hor: 0x5c3260, fog: 0x2c2244, sunC: 0xa8bcf2, hemiS: 0x5e5e9c, hemiG: 0x28203e, ws: 0x3a5e8e, wd: 0x10213f, sunI: .38, hemiI: .5,  fogN: 40, fogF: 640, stars: 1,   lights: 1, lel: 44, el: 44, az: 205, glow: 0 } };
 const E = { top: K(0), hor: K(0), fog: K(0), sunC: K(0), hemiS: K(0), hemiG: K(0), ws: K(0), wd: K(0), init: false }, CK = ['top', 'hor', 'fog', 'sunC', 'hemiS', 'hemiG', 'ws', 'wd'], NK = ['sunI', 'hemiI', 'fogN', 'fogF', 'stars', 'lights', 'el', 'lel', 'az', 'glow'];
 let timeName = 'day';
 const sunDir = new THREE.Vector3(), lightDir = new THREE.Vector3(), tmpC = K(0);
@@ -2579,7 +2582,7 @@ function step(dt) { if (vista) { S.v = 0; return; } apFrame(dt);          // par
   const A = S.low ? CAR.aLo : lerp(CAR.aLo * .92, CAR.aHi * 1.15, clamp(Math.abs(S.v) / 7, 0, 1)), vmax = S.low ? 7.5 : CAR.vmax, v0 = S.v;   // high range pulls like low range from a standstill
   let want = 0, braking = 0;
   if (gas > .03) want = gas * (S.v < -.5 ? A : A * Math.max(0, 1 - S.v / vmax));
-  if (brk > .03) { if (S.v > .6) braking = brk * Math.min(17, traction * 1.85); else if (rvI > .03) want = -rvI * A * .8 * Math.max(0, 1 + S.v / (S.low ? 4 : 8)); else braking = bT * Math.min(17, traction * 1.85); }
+  if (brk > .03) { if (S.v > .6) braking = brk * Math.min(17, traction * 1.85) * (CAR.drift && S.v > 7 && Math.abs(S.steer) > .04 ? 1 - .5 * CAR.drift : 1); else if (rvI > .03) want = -rvI * A * .8 * Math.max(0, 1 + S.v / (S.low ? 4 : 8)); else braking = bT * Math.min(17, traction * 1.85); }
   S.braking = (S.v > .6 && brk > .03) || bT > .03;
   const drive = clamp(want, -traction, traction);
   S.spin = Math.abs(want) > traction + .4 && Math.abs(S.v) < 4;
@@ -2600,7 +2603,8 @@ function step(dt) { if (vista) { S.v = 0; return; } apFrame(dt);          // par
   S.steer += (steerIn * sMax - S.steer) * Math.min(1, dt * (Math.abs(pad.steer) > .05 || inp.sx ? 7 : 4.5));
   S.yaw -= S.v / WHEELBASE * Math.tan(S.steer) * dt;
   const lim = mu * 7.6; if (Math.abs(gL) > lim) S.vlat += (gL - Math.sign(gL) * lim) * dt;
-  S.vlat *= Math.exp(-(Math.abs(gL) > lim ? 1.5 : 9) * dt);
+  let drifting = false; if (CAR.drift && S.v > 7 && brk > .03 && Math.abs(steerIn) > .15) { const ac = S.v * S.v / WHEELBASE * Math.abs(Math.tan(S.steer)), over = Math.max(0, ac - mu * 9.8 * (1 - .4 * CAR.drift)), g = CAR.drift * Math.min(1, brk * 1.4); if (over > 0) { const sg = Math.sign(S.steer); S.vlat -= sg * over * g * .32 * dt; S.yaw -= sg * g * Math.min(1, over / 5) * .75 * dt; drifting = true; } }
+  S.vlat *= Math.exp(-(drifting ? 1.1 : Math.abs(gL) > lim ? 1.5 : 9) * dt);
   let nx = S.x + (sY * S.v - cY * S.vlat) * dt, nz = S.z + (cY * S.v + sY * S.vlat) * dt;
   nearSolids(nx, nz, t => { if (t.rock && S.y - t.h > t.r * 1.3 + 1.2) return; const dx = nx - t.x, dz = nz - t.z, d = Math.hypot(dx, dz), R = t.r + .85;
     if (d < R && d > 1e-3) { const ux = dx / d, uz = dz / d, dir = Math.sign(S.v) || 1, head = -(ux * sY + uz * cY) * dir;      // 1: straight at it, 0: brushing past
@@ -2616,7 +2620,7 @@ function step(dt) { if (vista) { S.v = 0; return; } apFrame(dt);          // par
 let cullT = 0, last = performance.now(), hudT = 0, fpsN = 0, fpsT = 0, warm = 0, visP = 0, visR = 0;
 const v3 = new THREE.Vector3();
 let fpsOn = false, fpsCnt = 0, fpsT0 = 0;
-function fpsFrame(now) { if (!fpsOn) return; fpsCnt++; if (now - fpsT0 >= 1000) { const el = document.getElementById('fpsBox'); if (el) el.textContent = Math.round(fpsCnt * 1000 / (now - fpsT0)) + ' fps · ' + ['low', 'medium', 'high'][quality] + ' · ' + RES[resI] + '×'; fpsCnt = 0; fpsT0 = now; } }
+function fpsFrame(now) { if (!fpsOn) return; { const el = document.getElementById('fpsBox'); if (el) el.style.visibility = S.started ? '' : 'hidden'; } fpsCnt++; if (now - fpsT0 >= 1000) { const el = document.getElementById('fpsBox'); if (el) el.textContent = Math.round(fpsCnt * 1000 / (now - fpsT0)) + ' fps · ' + ['low', 'medium', 'high'][quality] + ' · ' + RES[resI] + '×'; fpsCnt = 0; fpsT0 = now; } }
 function tick(now) { fpsFrame(now);
   const raw = (now - last) / 1000; last = now; const dt = Math.min(.05, raw); clock += dt; timeU.value = clock;
   pollPad(dt); step(dt / 2); step(dt / 2); applyEnv(dt);
