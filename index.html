@@ -735,7 +735,10 @@ const farMat = new THREE.MeshBasicMaterial({ color: 0xd9b0a0, fog: false, vertex
   for (let ring = 0; ring < 2; ring++) for (let i = 0; i < 11; i++) { const a = i / 11 * 6.283 + jr() * .25 + ring * .3, r = HALF * (ring ? 3.1 : 2.2) + jr() * 300;
     massif(a, r, (ring ? 1500 : 1000) + jr() * 700, (ring ? 700 : 480) + jr() * 250, (ring ? 430 : 230) + jr() * (ring ? 260 : 170), ring ? 1 : .84, ring ? .5 : .74, ring ? .28 : .16); }
   for (let i = 0; i < 9; i++) { const a = -1.3 + i * .32 + jr() * .2, r = HALF * 1.75 + jr() * 260, hgt = 70 + jr() * 110, wd = 110 + jr() * 150;          // red-rock mesas off the desert coast
-    parts.push(bake(new THREE.CylinderGeometry(.62 + jr() * .2, 1, 1, 7), 0xffffff, M(Math.cos(a) * r, hgt * .32 - 6, Math.sin(a) * r, 0, jr() * 6, 0, wd, hgt * .65, wd * (.7 + jr() * .6)), { jit: .03, shade: [.86, .86], warp: .12 })); }
+    const ms = bake(new THREE.CylinderGeometry(.62 + jr() * .2, 1, 1, 7), 0xffffff, M(Math.cos(a) * r, hgt * .32 - 6, Math.sin(a) * r, 0, jr() * 6, 0, wd, hgt * .65, wd * (.7 + jr() * .6)), { jit: .03, shade: [.82, 1], warp: .12 }), P = ms.p, Q = ms.c;
+    for (let t = 0; t < P.length; t += 9) { const ux = P[t + 3] - P[t], uy = P[t + 4] - P[t + 1], uz = P[t + 5] - P[t + 2], vx = P[t + 6] - P[t], vy = P[t + 7] - P[t + 1], vz = P[t + 8] - P[t + 2]; let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const l = Math.hypot(nx, ny, nz) || 1;
+      const lit = .38 + .62 * Math.max(0, (nx * Lx + ny * Ly + nz * Lz) / l), rk = [.82, .48, .33]; for (let k = 0; k < 3; k++) for (let c = 0; c < 3; c++) Q[t + k * 3 + c] = lerp(rk[c] * lit * Q[t + k * 3 + c], c === 2 ? 1.02 : 1, .16); }
+    parts.push(ms); }
   scene.add(new THREE.Mesh(merge(parts), farMat)); })();
 
 /* ---------- terrain + water meshes ---------- */
