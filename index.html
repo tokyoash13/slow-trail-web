@@ -218,6 +218,7 @@
 <script src="cars5.js"></script>
 <script src="cars6.js"></script>
 <script src="cars7.js"></script>
+<script src="animals.js"></script>
 <script>
 (function () {
 'use strict';
@@ -2920,6 +2921,38 @@ function extraFrame(dt) {
   if ((mistT -= dt) < 0) { mistT = .07; for (const f of jungleFalls) if (Math.hypot(f.x - camera.position.x, f.z - camera.position.z) < 170) puff(f.x + (Math.random() - .5) * f.w * 1.6, .6 + Math.random() * 2, f.z + (Math.random() - .5) * f.w * 1.6, 0xffffff, 3.5, 2.2); }
   if (bridge) bridgeRail();
 }
+const ANIMS3D = window.ANIMS3D;
+/* ---------- rigged animals (CC0 Quaternius models): rebuilt from packed data into skinned meshes with their own walk, gallop, graze and idle clips ---------- */
+const A3D = (() => {
+  const mat = new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 0, skinning: true }), lib = {}; mat.color.setScalar(1.12);
+  const san = n => THREE.PropertyBinding.sanitizeNodeName(n);
+  function prep(kind) { if (lib[kind]) return lib[kind]; const D = ANIMS3D[kind]; if (!D) return null; const m = D.m, s = atob(D.b), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); const buf = u.buffer;
+    const meshes = m.meshes.map(e => { const g = new THREE.BufferGeometry(), n = e.nv;
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(buf, e.pos, n * 3), 3)); g.setAttribute('normal', new THREE.BufferAttribute(new Int8Array(buf, e.nrm, n * 3), 3, true));
+      g.setAttribute('skinIndex', new THREE.BufferAttribute(new Uint8Array(buf, e.jnt, n * 4), 4)); g.setAttribute('skinWeight', new THREE.BufferAttribute(new Uint8Array(buf, e.wgt, n * 4), 4, true));
+      g.setAttribute('color', new THREE.BufferAttribute(new Uint8Array(buf, e.col, n * 3), 3, true)); g.setIndex(new THREE.BufferAttribute(new Uint16Array(buf, e.idx, e.ni), 1));
+      const ibm = new Float32Array(buf, e.ibm, e.joints.length * 16), inv = e.joints.map((_, k) => new THREE.Matrix4().fromArray(ibm, k * 16)); return { g, node: e.node, joints: e.joints, inv }; });
+    const isJ = new Set(); meshes.forEach(e => e.joints.forEach(j => isJ.add(j)));
+    const clips = {}; for (const c of m.clips) { const tr = c.tr.map(([nd, p, n, to, vo, q]) => { const t = new Float32Array(buf, to, n), nm = san(m.nodes[nd].n);
+        if (p === 'r') { const v = new Int16Array(buf, vo, n * 4), f = new Float32Array(n * 4); for (let i = 0; i < f.length; i++) f[i] = v[i] / 32767; return new THREE.QuaternionKeyframeTrack(nm + '.quaternion', t, f); }
+        return new THREE.VectorKeyframeTrack(nm + (p === 't' ? '.position' : '.scale'), t, new Float32Array(buf, vo, n * 3)); });
+      clips[c.name] = new THREE.AnimationClip(c.name, c.dur, tr); }
+    if (!clips.Idle_Headlow && clips.Idle_2_HeadLow) clips.Idle_Headlow = clips.Idle_2_HeadLow;
+    return lib[kind] = { m, meshes, isJ, clips, fit: null }; }
+  // one animal: its own bones and mixer, shared geometry. Faces +Z, feet on y = 0, H metres tall
+  function make(kind, H) { const L = prep(kind); if (!L) return null; const objs = L.m.nodes.map((n, i) => { const o = L.isJ.has(i) ? new THREE.Bone() : new THREE.Object3D(); o.name = san(n.n); o.position.fromArray(n.t); o.quaternion.fromArray(n.r); o.scale.fromArray(n.s); return o; });
+    const top = new THREE.Group(), inner = new THREE.Group(); top.add(inner); L.m.nodes.forEach((n, i) => (n.p >= 0 ? objs[n.p] : inner).add(objs[i])); inner.updateMatrixWorld(true);
+    const ms = L.meshes.map(e => { const sm = new THREE.SkinnedMesh(e.g, mat); sm.name = 'skin'; const host = objs[e.node]; host.add(sm); sm.updateMatrixWorld(true);
+      sm.bind(new THREE.Skeleton(e.joints.map(j => objs[j]), e.inv), new THREE.Matrix4()); sm.castShadow = true; sm.frustumCulled = false; return sm; });
+    if (!L.fit) { const bb = new THREE.Box3(), v = new THREE.Vector3(); for (const sm of ms) { const p = sm.geometry.attributes.position; for (let i = 0; i < p.count; i += 2) bb.expandByPoint(v.fromBufferAttribute(p, i).applyMatrix4(sm.matrixWorld)); }   // bind pose
+      const hd = objs.find(o => o.name === 'Head'), tl = objs.find(o => /^Tail/.test(o.name)) || objs.find(o => o.name === 'Body'), a = new THREE.Vector3(), b = new THREE.Vector3(); hd.getWorldPosition(a); tl.getWorldPosition(b);
+      L.fit = { yaw: Math.atan2(a.x - b.x, a.z - b.z), h: bb.max.y - bb.min.y, y0: bb.min.y, cx: (bb.min.x + bb.max.x) / 2, cz: (bb.min.z + bb.max.z) / 2 }; }
+    const F = L.fit, k = H / F.h; inner.rotation.y = -F.yaw; inner.position.set(-(F.cx * Math.cos(-F.yaw) + F.cz * Math.sin(-F.yaw)), -F.y0, -(-F.cx * Math.sin(-F.yaw) + F.cz * Math.cos(-F.yaw))); inner.position.y = -F.y0;
+    top.scale.setScalar(k); const mixer = new THREE.AnimationMixer(inner), act = {};
+    for (const nm in L.clips) { const ac = mixer.clipAction(L.clips[nm]); ac.play(); ac.w = nm === 'Idle' ? 1 : 0; ac.setEffectiveWeight(ac.w); ac.time = Math.random() * L.clips[nm].duration; act[nm] = ac; }
+    return { root: top, mixer, act }; }
+  return { make, prep, mat, lib };
+})();
 /* ---------- wildlife: a few animals live near every place. Sit still and they come over to look; drive at them and they run for cover. Each kind moves in its own way. ---------- */
 let stillT = 0, hornAt = -1e9; const animalSites = [];
 (function buildAnimals() {
@@ -2933,7 +2966,9 @@ let stillT = 0, hornAt = -1e9; const animalSites = [];
   const piv = (list, p) => { for (const q of list) for (let k = 0; k < q.p.length; k += 3) { q.p[k] -= p[0]; q.p[k + 1] -= p[1]; q.p[k + 2] -= p[2]; } return { geo: merge(list), p }; };
   const DEER = 0xa0703f, IBEX = 0xb89a72, EL = 0x8d8a86, MK = 0x7a5636, RED = 0xd8322a, JAG = 0xd9a441, IBIS = 0xe23a2e;
   const SP = {
-    deer: { n: 3, s: 1.05, walk: 1.6, run: 11, rad: [7, 10], gait: 'bound', graze: .9, legY: .84, legs: [[.15, .4], [-.15, .4], [.15, -.42], [-.15, -.42]], leg: leg(.84, .055, 0x8a5c38, 0x2a2420),
+    fox: { n: 2, s: 1, walk: 1.2, run: 9, rad: [6, 8.5], gait: 'bound', graze: .6, m3d: [['fox', .62]], wN: 1.1, gN: 7 },
+    wolf: { n: 3, s: 1, walk: 1.4, run: 10, rad: [8, 11], gait: 'bound', graze: .4, m3d: [['wolf', .88]], wN: 1.3, gN: 8 },
+    deer: { n: 3, s: 1.05, walk: 1.6, run: 11, rad: [7, 10], gait: 'bound', graze: .9, m3d: [['deer', 1.5], ['stag', 1.95], ['deer', 1.45]], wN: 1.4, gN: 9, legY: .84, legs: [[.15, .4], [-.15, .4], [.15, -.42], [-.15, -.42]], leg: leg(.84, .055, 0x8a5c38, 0x2a2420),
       body: merge([E(.27, .3, .62, DEER, 0, 1.07, 0), E(.21, .19, .5, 0xdcc8a6, 0, .93, 0), E(.15, .17, .09, 0xf6eede, 0, 1.12, -.6), Cy(.03, .045, .16, 0xf6eede, 0, 1.2, -.66, -.5),
         ...[[-.1, .3], [.08, .1], [-.05, -.15], [.12, -.3], [-.14, -.4], [.02, .42]].map(q => E(.035, .02, .035, 0xead9b8, q[0], 1.345, q[1]))]),
       head: piv([Cy(.11, .17, .64, DEER, 0, 1.43, .56, .75), E(.11, .12, .2, 0xa87848, 0, 1.76, .86), E(.07, .07, .1, 0x5a4030, 0, 1.72, 1.03), E(.03, .025, .03, 0x161212, 0, 1.73, 1.12), ...eyes(.09, 1.8, .9, .026),
@@ -2973,7 +3008,7 @@ let stillT = 0, hornAt = -1e9; const animalSites = [];
   // where animals live: around every place, plus a few groups deep in the jungle
   const spots = places.filter(p => p.kind !== 'lake').map((p, i) => { let low = 9; for (let k = 0; k < 8; k++) low = Math.min(low, heightAt(p.x + Math.cos(k * .785) * 34, p.z + Math.sin(k * .785) * 34));
     const kinds = p.name === 'Emerald Falls' ? ['jaguar', 'ibis'] : p.name === 'Jungle Heart' ? ['parrot'] : p.name === 'Jungle Camp' ? ['monkey'] : jungleAt(p.x, p.z) > .35 ? [['elephant', 'monkey', 'parrot', 'ibis'][i % 4]]
-      : p.kind === 'lighthouse' || p.kind === 'jetty' || low < -.3 ? ['gull'] : p.kind === 'cave' ? ['rabbit'] : biome(p.x, p.z) > .5 ? ['ibex'] : i % 2 ? ['rabbit'] : ['deer'];
+      : p.kind === 'lighthouse' || p.kind === 'jetty' || low < -.3 ? ['gull'] : p.kind === 'cave' ? ['rabbit', 'fox'] : biome(p.x, p.z) > .5 ? (i % 3 ? ['ibex'] : ['ibex', 'wolf']) : i % 2 ? (i % 4 === 1 ? ['rabbit', 'fox'] : ['rabbit']) : i % 6 === 0 ? ['wolf'] : ['deer'];
     return { x: p.x, z: p.z, R: p.R, kinds, tight: p.name === 'Jungle Heart' }; });
   if (jungle) for (const kind of ['elephant', 'ibis', 'monkey', 'elephant', 'parrot', 'monkey']) for (let t = 0; t < 60; t++) { const a = ar() * 6.283, r = Math.sqrt(ar()) * jungle.r * .8, x = jungle.x + Math.sin(a) * r, z = jungle.z + Math.cos(a) * r;
     if (heightAt(x, z) > 1.6 && slopeAt(x, z, 8) < .25 && !spots.some(s => Math.hypot(s.x - x, s.z - z) < 90)) { spots.push({ x, z, R: 6, kinds: [kind] }); break; } }
@@ -2983,20 +3018,22 @@ let stillT = 0, hornAt = -1e9; const animalSites = [];
         if (sp.perch) { hx = jungle.rock.x; hz = jungle.rock.z; ok = true; }
         for (let t = 0; t < 24 && !ok; t++) { const a = ar() * 6.283, r = P.tight ? 5 + ar() * 10 : P.R + 5 + ar() * 16; hx = P.x + Math.sin(a) * r; hz = P.z + Math.cos(a) * r; const h = heightAt(hx, hz); ok = (sp.wade ? h > -.25 && h < 2.5 : h > .5) && slopeAt(hx, hz, 3) < .55 && !caveNear(hx, hz, 0); }
         if (!ok) continue;
-        const g = new THREE.Group(), body = new THREE.Mesh(sp.body, vcMat); body.castShadow = true; g.add(body); g.scale.setScalar(sp.s * (.9 + ar() * .2)); g.rotation.order = 'YXZ';
-        const a = { g, sp, home: { x: hx, z: hz }, x: hx, z: hz, yaw: ar() * 6.283, state: 'idle', t: 0, next: ar() * 5, go: false, tx: hx, tz: hz, shy: ar() * 2.5, ph: ar() * 6, seed: ar() * 40, rad: lerp(sp.rad[0], sp.rad[1], ar()), ang: 0, fd: 1, legs: [], wings: [], lift: 0, k: 1 };
+        const g = new THREE.Group(), mk = sp.m3d && sp.m3d[i % sp.m3d.length], R3 = mk && A3D.make(mk[0], mk[1]); if (R3) g.add(R3.root); else { const body = new THREE.Mesh(sp.body, vcMat); body.castShadow = true; g.add(body); } g.scale.setScalar((R3 ? 1 : sp.s) * (.9 + ar() * .2)); g.rotation.order = 'YXZ';
+        const a = { g, sp, home: { x: hx, z: hz }, x: hx, z: hz, yaw: ar() * 6.283, state: 'idle', t: 0, next: ar() * 5, go: false, tx: hx, tz: hz, shy: ar() * 2.5, ph: ar() * 6, seed: ar() * 40, rad: lerp(sp.rad[0], sp.rad[1], ar()), ang: 0, fd: 1, legs: [], wings: [], lift: 0, k: 1, cs: 0, tp: 0, mix: R3 && R3.mixer, act: R3 && R3.act };
         const add = (pc, parent) => { const m = new THREE.Mesh(pc.geo, vcMat); m.position.set(pc.p[0], pc.p[1], pc.p[2]); (parent || g).add(m); return m; };
-        if (sp.head) a.head = add(sp.head); if (sp.tail) a.tail = add(sp.tail);
+        if (sp.head && !R3) a.head = add(sp.head); if (sp.tail) a.tail = add(sp.tail);
         if (sp.ear) a.ears = [1, -1].map(s => { const pc = sp.ear(s), m = add(pc, a.head); m.position.set(pc.p[0] - sp.head.p[0], pc.p[1] - sp.head.p[1], pc.p[2] - sp.head.p[2]); return m; });
-        if (sp.legs) for (const l of sp.legs) { const m = new THREE.Mesh(sp.leg, vcMat); m.position.set(l[0], sp.legY, l[1]); g.add(m); a.legs.push(m); }
+        if (sp.legs && !R3) for (const l of sp.legs) { const m = new THREE.Mesh(sp.leg, vcMat); m.position.set(l[0], sp.legY, l[1]); g.add(m); a.legs.push(m); }
         if (sp.fly) for (const sx of [-1, 1]) { const m = new THREE.Mesh(sx < 0 ? sp.wingL : sp.wingR, vcMat); m.position.set(sx * .07, sp.wingY, 0); g.add(m); a.wings.push(m); }
         scene.add(g); site.list.push(a); } }
     if (site.list.length) animalSites.push(site); }
 })();
 const aTurn = (a, want, rate) => { let d = want - a.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); a.yaw += clamp(d, -rate, rate); };
 // walk or run towards a point; true once there (or when water is in the way)
-function aMove(a, tx, tz, speed, dt) { const dx = tx - a.x, dz = tz - a.z, d = Math.hypot(dx, dz); if (d < .35) return true; aTurn(a, Math.atan2(dx, dz), dt * (a.sp.gait === 'heavy' ? 2.2 : 9));
-  const st = Math.min(d, speed * a.k * dt), nx = a.x + dx / d * st, nz = a.z + dz / d * st; if (!a.sp.fly && heightAt(nx, nz) < .15) return true; a.x = nx; a.z = nz; return false; }
+function aMove(a, tx, tz, speed, dt) { const dx = tx - a.x, dz = tz - a.z, d = Math.hypot(dx, dz); if (d < .35) return true; const fast = speed > a.sp.walk * 1.5, want = Math.atan2(dx, dz);
+  aTurn(a, want, dt * (a.sp.gait === 'heavy' ? 1.6 : a.sp.fly ? 9 : fast ? 5.5 : 3.2)); let off = want - a.yaw; off = Math.abs(Math.atan2(Math.sin(off), Math.cos(off)));
+  const goal = speed * (d < 2.5 && !fast ? Math.max(.35, d / 2.5) : 1) * Math.max(.25, Math.cos(Math.min(off, 1.4))); a.cs += (goal - a.cs) * Math.min(1, dt * (goal > a.cs ? (fast ? 3 : 2) : 4)); a.mvT = clock;
+  const st = Math.min(d, Math.max(a.cs, .2) * a.k * dt), ux = d < 1.5 || a.sp.fly ? dx / d : Math.sin(a.yaw), uz = d < 1.5 || a.sp.fly ? dz / d : Math.cos(a.yaw), nx = a.x + ux * st, nz = a.z + uz * st; if (!a.sp.fly && heightAt(nx, nz) < .15) return true; a.x = nx; a.z = nz; return false; }
 // somewhere out of sight: behind a tree or rock well away from the car, or failing that just far off
 function aHide(a) { const ax = a.x - S.x, az = a.z - S.z, l = Math.hypot(ax, az) || 1, ux = ax / l, uz = az / l; let best = null, bs = -1e9;
   if (!a.sp.fly) nearSolids(a.x + ux * 20, a.z + uz * 20, t => { if (t.ghost || t.r > 7) return; const dc = Math.hypot(t.x - S.x, t.z - S.z), da = Math.hypot(t.x - a.x, t.z - a.z); if (dc < 24 || da > 46 || heightAt(t.x, t.z) < .5) return;
@@ -3005,7 +3042,7 @@ function aHide(a) { const ax = a.x - S.x, az = a.z - S.z, l = Math.hypot(ax, az)
   else { let done = false; for (const o of [0, .6, -.6, 1.2, -1.2]) { const c = Math.cos(o), s = Math.sin(o), dx = ux * c - uz * s, dz = uz * c + ux * s, x = a.x + dx * 42, z = a.z + dz * 42; if (a.sp.fly || heightAt(x, z) > .4) { a.tx = x; a.tz = z; done = true; break; } }
     if (!done) { a.tx = a.home.x; a.tz = a.home.z; } }
   a.fd = Math.hypot(a.tx - a.x, a.tz - a.z) || 1; a.state = 'flee'; a.t = 0; }
-function animalFrame(dt) { const spd = Math.abs(S.v); stillT = S.started && spd < .6 ? stillT + dt : 0; const honk = clock - hornAt < .4, sin = Math.sin, abs = Math.abs;
+function animalFrame(dt) { if (window.__animPause) return; const spd = Math.abs(S.v); stillT = S.started && spd < .6 ? stillT + dt : 0; const honk = clock - hornAt < .4, sin = Math.sin, abs = Math.abs;
   for (const site of animalSites) { const on = Math.hypot(site.x - S.x, site.z - S.z) < 200; if (on !== site.on) { site.on = on; for (const a of site.list) a.g.visible = on; } if (!on) continue;
     for (const a of site.list) { const sp = a.sp, gt = sp.gait, dx = S.x - a.x, dz = S.z - a.z, d = Math.hypot(dx, dz), face = Math.atan2(dx, dz), tt = clock + a.seed; let mv = 0; a.t += dt;
       a.k = gt === 'hop' ? .15 + 2 * Math.max(0, sin(a.ph)) : gt === 'pronk' && a.state === 'flee' ? .4 + 1.3 * Math.max(0, sin(a.ph)) : 1;          // rabbits and ibex cover ground in leaps
@@ -3019,14 +3056,20 @@ function animalFrame(dt) { const spd = Math.abs(S.v); stillT = S.started && spd 
       else if (a.state === 'flee') { if (aMove(a, a.tx, a.tz, sp.run, dt) || a.t > 12) { a.state = 'hide'; a.t = 0; } else mv = 2; }
       else if (a.state === 'hide') { aTurn(a, face, dt * 4); if (stillT > 5 + a.shy && d < 75) { a.state = 'curious'; a.t = 0; a.ang = Math.atan2(a.x - S.x, a.z - S.z); } else if (d > 90 && a.t > 6) a.state = 'home'; }
       else if (aMove(a, a.home.x, a.home.z, sp.walk * 1.3, dt)) { a.state = 'idle'; a.t = 0; a.next = 1; } else mv = 1;
+      if (!mv) a.cs = Math.max(0, a.cs - dt * 5); const pr = mv ? clamp(a.cs / (mv === 2 ? sp.run : sp.walk), .3, 1.3) : 1, ph0 = a.ph;
       const alert = a.state === 'watch' || a.state === 'curious' || a.state === 'hide', L = a.legs, ph = a.ph;
       let y = Math.max(heightAt(a.x, a.z), sp.wade ? -.3 : 0), pitch = 0, roll = 0, hx = 0, hy = 0, lg = [0, 0, 0, 0];
       const graze = sp.graze && a.state === 'idle' && !mv && sin(tt * .21) > -.2 ? sp.graze * (.85 + .15 * sin(tt * 3)) : 0;
-      if (gt === 'heavy') {                                   // elephant: a slow rolling walk, one foot at a time; ears fan, trunk swings, and it never gallops
-        a.ph += dt * (mv === 2 ? 6.5 : mv ? 3 : 0); const am = mv === 2 ? .42 : mv ? .3 : 0; lg = [sin(ph + 1.57) * am, sin(ph + 4.71) * am, sin(ph) * am, sin(ph + 3.14) * am];
+      if (a.mix) {                                            // rigged animal: blend its own clips, paced to its real speed
+        const want = mv === 2 || (mv && a.cs > sp.walk * 2.1) ? 'Gallop' : mv ? 'Walk' : graze ? 'Eating' : alert ? 'Idle' : sin(tt * .17) > .55 ? 'Idle_Headlow' : sin(tt * .23) > .3 ? 'Idle_2' : 'Idle', A = a.act;
+        for (const k in A) { const ac = A[k], w = k === want ? 1 : 0; if (w && ac.w < .02 && k !== 'Walk' && k !== 'Gallop') ac.time = 0; ac.w += (w - ac.w) * Math.min(1, dt * (mv === 2 ? 7 : 4)); ac.setEffectiveWeight(ac.w < .005 ? 0 : ac.w); }
+        if (A.Walk) A.Walk.timeScale = clamp(a.cs / (sp.wN * a.g.scale.x), .55, 1.8); if (A.Gallop) A.Gallop.timeScale = clamp(a.cs / (sp.gN * a.g.scale.x), .45, 1.5);
+        a.mix.update(dt); }
+      else if (gt === 'heavy') {                                   // elephant: a slow rolling walk, one foot at a time; ears fan, trunk swings, and it never gallops
+        a.ph += dt * (mv === 2 ? 6.5 : mv ? 3 : 0) * pr; const am = mv === 2 ? .42 : mv ? .3 : 0; lg = [sin(ph + 1.57) * am, sin(ph + 4.71) * am, sin(ph) * am, sin(ph + 3.14) * am];
         roll = mv ? sin(ph) * .035 : 0; y += mv ? abs(sin(ph * 2)) * .03 : 0; hx = alert ? -.42 + sin(tt * 1.3) * .08 : mv ? sin(ph * 2) * .05 : .05 + sin(tt * .8) * .09; hy = mv ? 0 : sin(tt * .45) * .16;
         const fl = a.state === 'flee' ? .95 : alert ? .7 + sin(tt * 5) * .1 : .12 + Math.max(0, sin(tt * 1.7)) * .5; a.ears[0].rotation.y = fl; a.ears[1].rotation.y = -fl; a.tail.rotation.z = sin(tt * 2.6) * .4; }
-      else if (gt === 'bound' || gt === 'pronk' || gt === 'cat' || gt === 'ape') { a.ph += dt * (mv === 2 ? (gt === 'pronk' ? 9 : 15) : mv ? 7.5 : 0);
+      else if (gt === 'bound' || gt === 'pronk' || gt === 'cat' || gt === 'ape') { a.ph += dt * (mv === 2 ? (gt === 'pronk' ? 9 : 15) : mv ? 7.5 : 0) * pr;
         if (mv === 2 && gt === 'pronk') { const up = Math.max(0, sin(ph)); y += up * .75; lg = [-.25 * up, -.25 * up, .3 * up, .3 * up]; pitch = -.05; }          // ibex: stiff-legged leaps
         else if (mv === 2) { const f = sin(ph) * .85, r = sin(ph - 1.9) * .85, st = gt === 'cat' ? .12 : gt === 'ape' ? .3 : .2; lg = [f, f, r, r]; pitch = sin(ph + .6) * st; y += Math.max(0, sin(ph + .3)) * (gt === 'cat' ? .12 : gt === 'ape' ? .22 : .38); }   // gallop: fore and hind pairs
         else if (mv) { const w = sin(ph) * (gt === 'cat' ? .42 : .5); lg = [w, -w, -w, w]; if (gt === 'cat') { y -= .07 * sp.s; hx = .18; } if (gt === 'ape') { y += abs(sin(ph)) * .04; pitch = sin(ph * 2) * .06; } }
@@ -3034,7 +3077,7 @@ function animalFrame(dt) { const spd = Math.abs(S.v); stillT = S.started && spd 
           if (gt === 'ape' && alert) { pitch = -.8; hx = .5; y += Math.max(0, sin(tt * 5.5)) * (sin(tt * .9) > .3 ? .16 : 0); lg = [.9, .9, -.9, -.9]; }      // monkey sits up, and bounces when it gets excited
           if (gt === 'cat' && sp.perch && a.state === 'idle') { y = jungle.slab - sp.legY * sp.s * .34; a.x = a.home.x; a.z = a.home.z; a.yaw = jungle.slabYaw + 1.57; lg = [-1.35, -1.35, 1.35, 1.35]; hy = clamp(Math.atan2(sin(face - a.yaw), Math.cos(face - a.yaw)), -1.2, 1.2); hx = -.1; } }
         if (a.tail) { a.tail.rotation.y = sin(tt * (gt === 'cat' ? 1.5 : 3)) * (mv === 2 ? .15 : .55); a.tail.rotation.x = mv === 2 ? .5 : 0; } }
-      else if (gt === 'hop') { a.ph += dt * (mv === 2 ? 15 : mv ? 9 : 0); const up = mv ? Math.max(0, sin(ph)) : 0; y += up * (mv === 2 ? .36 : .2); pitch = mv ? Math.cos(ph) * -.32 * (up > 0 ? 1 : 0) : alert ? -.55 : 0;
+      else if (gt === 'hop') { a.ph += dt * (mv === 2 ? 15 : mv ? 9 : 0) * pr; const up = mv ? Math.max(0, sin(ph)) : 0; y += up * (mv === 2 ? .36 : .2); pitch = mv ? Math.cos(ph) * -.32 * (up > 0 ? 1 : 0) : alert ? -.55 : 0;
         hx = alert && !mv ? .45 : 0; hy = !mv ? sin(tt * 1.1) * .3 : 0; if (mv === 2) a.yaw += sin(ph * .5) * dt * 3; }                                                    // rabbit: hops, sits up to look, zigzags away
       else { a.ph += dt * (mv ? 12 : 0); const air = a.lift > .15;                                                                                                           // birds: hop and peck on the ground, flap up and glide away
         if (!air) { y += mv ? abs(sin(ph)) * (sp.wade ? .03 : .07) : 0; const peck = a.state === 'idle' && !mv && sin(tt * .5) > .1 ? Math.max(0, sin(tt * (sp.wade ? 2 : 5))) : 0; pitch = peck * (sp.wade ? .5 : .6); hx = peck * .5 + (mv ? sin(ph) * .2 : 0); hy = alert ? sin(tt * 1.6) * .5 : 0; }
@@ -3043,7 +3086,9 @@ function animalFrame(dt) { const spd = Math.abs(S.v); stillT = S.started && spd 
         if (air) { pitch = glide ? .1 : -.25; roll = sin(tt * 1.3) * .15; } }
       for (let i = 0; i < L.length; i++) L[i].rotation.x = lg[i];
       if (a.head) { a.head.rotation.x += (hx - a.head.rotation.x) * Math.min(1, dt * 5); a.head.rotation.y += (hy - a.head.rotation.y) * Math.min(1, dt * 4); }
-      a.g.position.set(a.x, y, a.z); a.g.rotation.set(pitch, a.yaw, roll); } } }
+      if (!(a.lift > .15)) { const fl = .45 * a.g.scale.x * (sp.legs ? Math.abs(sp.legs[0][1]) / .4 : 1) + .2, sy = Math.sin(a.yaw), cy = Math.cos(a.yaw), tp = clamp(-Math.atan2(heightAt(a.x + sy * fl, a.z + cy * fl) - heightAt(a.x - sy * fl, a.z - cy * fl), 2 * fl), -.45, .45);
+        a.tp += (tp - a.tp) * Math.min(1, dt * 6); pitch += a.tp; if (a.mix) roll += clamp(Math.atan2(Math.sin(a.yaw - (a.py ?? a.yaw)), Math.cos(a.yaw - (a.py ?? a.yaw))) / Math.max(dt, 1e-3) * a.cs * -.012, -.18, .18); }
+      a.py = a.yaw; a.g.position.set(a.x, y, a.z); a.g.rotation.set(pitch, a.yaw, roll); } } }
 
 let doneShown = false;
 function checkDone() { save(); if (!doneShown && camps.every(c => c.found) && sights.every(s => s.found) && stamps.every(s => s.got)) { doneShown = true; play('done'); toast('Every camp, sight and stamp found. The island is yours — keep driving.', 7); } }
@@ -3053,7 +3098,7 @@ document.querySelectorAll('#optTabs .mb').forEach(b => b.addEventListener('click
 // the Exit button only exists inside the Android app, where there is something to close
 if (window.NativeApp && window.NativeApp.exit) $('bExit').addEventListener('click', () => { save(); window.NativeApp.exit(); }); else $('bExit').style.display = 'none';
 try { initAudio(); } catch (e) {}
-window.__game = { BBU, clouds, impCache, renderer, skyU, solids, detailTex, apDbg: () => ({ AP, routePts, snapRoad, roadAt }), world: scene, carObj: () => car, three: THREE, dof, pickPaint, PAINTS, roadY, extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
+window.__game = { A3D, BBU, clouds, impCache, renderer, skyU, solids, detailTex, apDbg: () => ({ AP, routePts, snapRoad, roadAt }), world: scene, carObj: () => car, three: THREE, dof, pickPaint, PAINTS, roadY, extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
 requestAnimationFrame(frame);
 requestAnimationFrame(() => requestAnimationFrame(() => { const l = document.getElementById('loadScr'); if (!l) return; const go = () => { if (l.classList.contains('gone')) return; l.classList.add('gone'); try { play('click'); } catch (e) {} setTimeout(() => l.remove(), 750); }; if (navigator.webdriver) { go(); return; } l.classList.add('ready'); l.addEventListener('pointerup', go); addEventListener('keydown', go, { once: true }); }));
 })();
