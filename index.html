@@ -726,13 +726,13 @@ const farMat = new THREE.MeshBasicMaterial({ color: 0xd9b0a0, fog: false, vertex
     const C = []; for (let i = 0; i <= nu; i++) { C.push([]); for (let j = 0; j <= nv; j++) { const A = G[Math.max(0, i - 1)][j], B = G[Math.min(nu, i + 1)][j], Cc = G[i][Math.max(0, j - 1)], Dd = G[i][Math.min(nv, j + 1)];
       const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2], vx = Dd[0] - Cc[0], vy = Dd[1] - Cc[1], vz = Dd[2] - Cc[2]; let qx = uy * vz - uz * vy, qy = uz * vx - ux * vz, qz = ux * vy - uy * vx; const l = Math.hypot(qx, qy, qz) || 1; if (qy < 0) { qx = -qx; qy = -qy; qz = -qz; }
       const lit = .4 + .6 * Math.max(0, (qx * Lx + qy * Ly + qz * Lz) / l), alt = (G[i][j][1] + 12) / Hm, slope = qy / l, sn = snow ? sstep(snow - .1, snow + .05, alt + (slope - .62) * .3) : 0, wood = 1 - sstep(.1, .3, alt + (1 - slope) * .12);
-      const rk = [.56 * sh, .57 * sh, .64 * sh], col = [lerp(lerp(rk[0], .4, wood), 1.08, sn) * lit, lerp(lerp(rk[1], .47, wood), 1.09, sn) * lit, lerp(lerp(rk[2], .46, wood), 1.13, sn) * lit];
+      const rk = [.74 * sh, .5 * sh, .35 * sh], col = [lerp(lerp(rk[0], .4, wood), 1.08, sn) * lit, lerp(lerp(rk[1], .47, wood), 1.09, sn) * lit, lerp(lerp(rk[2], .46, wood), 1.13, sn) * lit];
       C[i].push([lerp(col[0], 1, haze), lerp(col[1], 1, haze), lerp(col[2], 1.02, haze)]); } }
     const p = [], c = [], put = (i, j) => { p.push(...G[i][j]); c.push(...C[i][j]); };
     for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) { put(i, j); put(i, j + 1); put(i + 1, j); put(i + 1, j); put(i, j + 1); put(i + 1, j + 1); }
     parts.push({ p: new Float32Array(p), c: new Float32Array(c), m: new Float32Array(p.length / 3).fill(1) }); };
   for (let ring = 0; ring < 2; ring++) for (let i = 0; i < 11; i++) { const a = i / 11 * 6.283 + jr() * .25 + ring * .3, r = HALF * (ring ? 3.1 : 2.2) + jr() * 300;
-    massif(a, r, (ring ? 1500 : 1000) + jr() * 700, (ring ? 700 : 480) + jr() * 250, (ring ? 430 : 230) + jr() * (ring ? 260 : 170), ring ? 1 : .84, ring ? .5 : .74, ring ? .52 : .3); }
+    massif(a, r, (ring ? 1500 : 1000) + jr() * 700, (ring ? 700 : 480) + jr() * 250, (ring ? 430 : 230) + jr() * (ring ? 260 : 170), ring ? 1 : .84, ring ? .5 : .74, ring ? .28 : .16); }
   for (let i = 0; i < 9; i++) { const a = -1.3 + i * .32 + jr() * .2, r = HALF * 1.75 + jr() * 260, hgt = 70 + jr() * 110, wd = 110 + jr() * 150;          // red-rock mesas off the desert coast
     parts.push(bake(new THREE.CylinderGeometry(.62 + jr() * .2, 1, 1, 7), 0xffffff, M(Math.cos(a) * r, hgt * .32 - 6, Math.sin(a) * r, 0, jr() * 6, 0, wd, hgt * .65, wd * (.7 + jr() * .6)), { jit: .03, shade: [.86, .86], warp: .12 })); }
   scene.add(new THREE.Mesh(merge(parts), farMat)); })();
@@ -1166,7 +1166,8 @@ function caveFrame(dt) { jungleK += (jungleAt(S.x, S.z) * (1 - .9 * sstep(12, 30
     if (!clearOfTrail(x, z, r + 7) || !awayFromCamps(x, z, r + 26) || inView(x, z, r, 120)) continue;
     let ok = true; for (const o of solids) if (Math.hypot(o.x - x, o.z - z) < o.r + r + 7) { ok = false; break; } if (!ok) continue;
     let lo = h; for (let a = 0; a < 6.28; a += .8) lo = Math.min(lo, heightAt(x + Math.cos(a) * r, z + Math.sin(a) * r));
-    forms[kind].push({ x, z, y: lo - .5, s, ry: rnd() * 6.28, sy: .8 + rnd() * .5, tint: pick([0xffffff, 0xf6e0d2, 0xffeada, 0xeccdbe]) }); addSolid({ x, z, h, r, top: h + 2 });
+    const ry = rnd() * 6.28; forms[kind].push({ x, z, y: lo - .5, s, ry, sy: .8 + rnd() * .5, tint: pick([0xffffff, 0xf6e0d2, 0xffeada, 0xeccdbe]) }); addSolid({ x, z, h, r: kind === 1 ? s * .98 : r, top: h + 2 });
+    for (const [lx, lz, rr] of [[[1.05, .5, .5], [-.9, -.8, .4]], [[.6, .22, .45], [-.45, -.42, .36], [.9, -.6, .34]], []][kind]) addSolid({ x: x + (lx * Math.cos(ry) + lz * Math.sin(ry)) * s, z: z + (-lx * Math.sin(ry) + lz * Math.cos(ry)) * s, h, r: rr * s, top: h + 2 });
   }
   for (let n = 0; n < 6000 * AR && boulders.length < 720 * AR; n++) {
     const x = (rnd() * 2 - 1) * (HALF - 50), z = (rnd() * 2 - 1) * (HALF - 50), h = heightAt(x, z), b = biome(x, z); if (h < .3) continue;
@@ -1175,7 +1176,7 @@ function caveFrame(dt) { jungleK += (jungleAt(S.x, S.z) * (1 - .9 * sstep(12, 30
     if (pathAt(x, z) > .05 || (big && (!clearOfTrail(x, z, s + 3) || !awayFromCamps(x, z, 16)))) continue;
     boulders.push({ x, z, y: h - s * .12, s, ry: rnd() * 6.28, rx: (rnd() - .5) * .4, sy: .75 + rnd() * .5,
       tint: b > .5 ? pick([0xcf8560, 0xc0775a, 0xdc9870, 0xb96c52]) : pick([0x8f8694, 0x7c7484, 0xa39aa4, 0x6e6878]) });
-    if (s > 1.5) addSolid({ x, z, h, r: s * 1.0, top: h + .6, rock: 1 }); else if (s > .55) { const it = boulders[boulders.length - 1]; if (clearOfTrail(x, z, s + 2.6) && roadAt(x, z) < .02) addSolid({ x, z, h, r: s * .92, top: h + .6, rock: 1 }); else { it.s = .5; it.y = h - .06; } }   // a rock right beside a track stays a small stone you can drive over
+    if (s > 1.5) addSolid({ x, z, h, r: s * 1.08, top: h + .6, rock: 1 }); else if (s > .55) { const it = boulders[boulders.length - 1]; if (clearOfTrail(x, z, s + 2.6) && roadAt(x, z) < .02) addSolid({ x, z, h, r: s * .92, top: h + .6, rock: 1 }); else { it.s = .5; it.y = h - .06; } }   // a rock right beside a track stays a small stone you can drive over
   }
   const AUT = [0xc9412c, 0xd9582a, 0xe58a2c, 0xeab23a, 0xd9a02e, 0xb83a34, 0x8f9a3c, 0xe07030], PINE = [0x2f6a4a, 0x357452, 0x2a5c4c, 0x3d7a4e, 0x4a7a44];
   for (let n = 0; n < 26000 * AR && P[0].length + P[1].length + P[2].length < 2100 * AR; n++) {
@@ -2008,7 +2009,7 @@ function applyEnv(dt) {
   scene.fog.color.copy(E.fog); scene.fog.near = E.fogN * (1 + vistaK * 2); scene.fog.far = E.fogF * (1 + vistaK * .9); renderer.setClearColor(E.fog);
   hemi.color.copy(E.hemiS); hemi.groundColor.copy(E.hemiG); hemi.intensity = E.hemiI; sun.color.copy(E.sunC); sun.intensity = E.sunI;
   waterU.uShallow.value.copy(E.ws); waterU.uDeep.value.copy(E.wd); starU.uOp.value = E.stars;
-  cloudMat.color.setRGB(1, 1, 1).lerp(E.hor, .12).lerp(E.sunC, .12 + .5 * skyU.low.value).multiplyScalar(.3 + .7 * E.glow); cloudMat.opacity = .5 + .42 * E.glow; farMat.color.copy(E.fog).lerp(E.top, .22).multiplyScalar(.97);
+  cloudMat.color.setRGB(1, 1, 1).lerp(E.hor, .12).lerp(E.sunC, .12 + .5 * skyU.low.value).multiplyScalar(.3 + .7 * E.glow); cloudMat.opacity = .5 + .42 * E.glow; farMat.color.copy(E.fog).lerp(E.top, .12).lerp(E.sunC, .18).multiplyScalar(.97);
   // the season tints the light; cloud cover greys the sky, dims the sun and brings the haze closer
   const SE = SEASON_ENV[season], sk = SE.k * E.glow, ov = wx.over; tmpC.setRGB(.74, .77, .8).multiplyScalar(.18 + .82 * E.glow * clamp(E.hemiI / .72, .3, 1));
   skyU.top.value.lerp(SE.sky, sk).lerp(tmpC, ov * .75); skyU.hor.value.lerp(SE.sky, sk * .6).lerp(tmpC, ov * .6); skyU.sunCol.value.multiplyScalar(1 - ov * .75);
@@ -2626,9 +2627,9 @@ function step(dt) { if (vista) { S.v = 0; return; } apFrame(dt);          // par
   let drifting = false; if (CAR.drift && S.v > 7 && brk > .03 && Math.abs(steerIn) > .15) { const ac = S.v * S.v / WHEELBASE * Math.abs(Math.tan(S.steer)), over = Math.max(0, ac - mu * 9.8 * (1 - .4 * CAR.drift)), g = CAR.drift * Math.min(1, brk * 1.4); if (over > 0) { const sg = Math.sign(S.steer); S.vlat -= sg * over * g * .32 * dt; S.yaw -= sg * g * Math.min(1, over / 5) * .75 * dt; drifting = true; } }
   S.vlat *= Math.exp(-(drifting ? 1.1 : Math.abs(gL) > lim ? 1.5 : 9) * dt);
   let nx = S.x + (sY * S.v - cY * S.vlat) * dt, nz = S.z + (cY * S.v + sY * S.vlat) * dt;
-  nearSolids(nx, nz, t => { if (t.rock && S.y - t.h > t.r * 1.3 + 1.2) return; const dx = nx - t.x, dz = nz - t.z, d = Math.hypot(dx, dz), R = t.r + .85;
+  const HL = Math.max(.6, (CAR.wb || 2.5) / 2 + .45); nearSolids(nx, nz, t => { if (t.rock && S.y - t.h > t.r * 1.3 + 1.2) return; const k = clamp((t.x - nx) * sY + (t.z - nz) * cY, -HL, HL), px = nx + sY * k, pz = nz + cY * k, dx = px - t.x, dz = pz - t.z, d = Math.hypot(dx, dz), R = t.r + .82;
     if (d < R && d > 1e-3) { const ux = dx / d, uz = dz / d, dir = Math.sign(S.v) || 1, head = -(ux * sY + uz * cY) * dir;      // 1: straight at it, 0: brushing past
-      nx = t.x + ux * R; nz = t.z + uz * R;
+      nx += ux * (R - d); nz += uz * (R - d);
       if (head > .15) { if (Math.abs(S.v) > 5 && head > .6) { rumble(140, Math.min(1, Math.abs(S.v) / 10)); play('thud', Math.abs(S.v)); S.v *= .55; }
         S.v *= Math.max(0, 1 - head * 5 * dt);
         S.yaw += ((ux * cY - uz * sY) >= 0 ? 1 : -1) * dir * head * 1.5 * dt; } } });                                           // nose swings away, so the truck slides round
@@ -3052,7 +3053,7 @@ document.querySelectorAll('#optTabs .mb').forEach(b => b.addEventListener('click
 // the Exit button only exists inside the Android app, where there is something to close
 if (window.NativeApp && window.NativeApp.exit) $('bExit').addEventListener('click', () => { save(); window.NativeApp.exit(); }); else $('bExit').style.display = 'none';
 try { initAudio(); } catch (e) {}
-window.__game = { BBU, clouds, impCache, renderer, skyU, detailTex, apDbg: () => ({ AP, routePts, snapRoad, roadAt }), world: scene, carObj: () => car, three: THREE, dof, pickPaint, PAINTS, roadY, extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
+window.__game = { BBU, clouds, impCache, renderer, skyU, solids, detailTex, apDbg: () => ({ AP, routePts, snapRoad, roadAt }), world: scene, carObj: () => car, three: THREE, dof, pickPaint, PAINTS, roadY, extraFrame, boats, sunSpot, WS, HALF, bridge: () => bridge, highway: () => highway, jungle: () => jungle, deckAt, animalSites, animalFrame, horn, acceptPlace, places, endVista, sceneLook, scene: () => vista, step, cave: () => cave, caveK: () => caveK, ceilAt, inp, toCamp, pickCar, CARS, nextCam, openMap, rebuildAudio, pickSeason, wx, startVista, vol, vistaT: () => vista ? vista.t : -1, sights, roads, POI, A, audioLevel, inst: { mPluck, mBass, mKeys, mPad, mBell, mShake }, openMap, closeMap, setDest, sfx, routeInfo: () => ({ dest: dest && dest.name, len: routeLen, pts: routePts.length, manual: destManual }), surfaceAt, roadAt, S, camps, stamps, inp, pad, heightAt, trailAt, biome, solids, sel, setQuality: q => { autoQ = false; setQuality(q); }, pickTime, pickCar, pickPaint, startGame, openMenu, info: () => renderer.info.render };
 requestAnimationFrame(frame);
 requestAnimationFrame(() => requestAnimationFrame(() => { const l = document.getElementById('loadScr'); if (!l) return; const go = () => { if (l.classList.contains('gone')) return; l.classList.add('gone'); try { play('click'); } catch (e) {} setTimeout(() => l.remove(), 750); }; if (navigator.webdriver) { go(); return; } l.classList.add('ready'); l.addEventListener('pointerup', go); addEventListener('keydown', go, { once: true }); }));
 })();
